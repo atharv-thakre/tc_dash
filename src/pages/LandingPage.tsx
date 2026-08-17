@@ -182,9 +182,9 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-indigo-500 selection:text-white font-sans antialiased relative overflow-hidden">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-indigo-500 selection:text-white font-sans antialiased relative">
       {/* Dynamic React Bits Canvas Particle Background */}
-      <div className="fixed inset-0 pointer-events-none z-0">
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         <ParticlesBackground
           particleCount={50}
           particleColor="rgba(99, 102, 241, 0.35)"
@@ -197,7 +197,7 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
 
       {/* Top Navbar */}
       <header className="sticky top-0 z-50 w-full border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
           {/* Brand Logo & Version */}
           <TcAuthLogo
             size="md"
@@ -244,23 +244,24 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
           </nav>
 
           {/* Right Action Buttons */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {account ? (
               <Magnet magnetStrength={0.2}>
                 <button
                   onClick={() => onNavigate('/dashboard')}
-                  className="flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-500/20 transition-all cursor-pointer whitespace-nowrap"
+                  className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-500/20 transition-all cursor-pointer whitespace-nowrap"
                 >
-                  <span>Open Dashboard</span>
+                  <span className="hidden xs:inline">Open Dashboard</span>
+                  <span className="xs:hidden">Dashboard</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </Magnet>
             ) : (
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <Magnet magnetStrength={0.2}>
                   <button
                     onClick={handleLaunchDemo}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all cursor-pointer whitespace-nowrap"
+                    className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all cursor-pointer whitespace-nowrap"
                     title="Launch instant live demo"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-amber-400" />
@@ -270,7 +271,7 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
 
                 <button
                   onClick={() => onNavigate('/login')}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-zinc-300 hover:text-white hover:bg-zinc-900 transition-all cursor-pointer whitespace-nowrap"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-zinc-300 hover:text-white hover:bg-zinc-900 transition-all cursor-pointer whitespace-nowrap"
                 >
                   Sign In
                 </button>
@@ -290,7 +291,7 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
             {/* Mobile Menu Toggle Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-zinc-400 hover:text-white rounded-lg lg:hidden hover:bg-zinc-900 border border-zinc-800 ml-1"
+              className="p-1.5 sm:p-2 text-zinc-400 hover:text-white rounded-lg lg:hidden hover:bg-zinc-900 border border-zinc-800 shrink-0"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}

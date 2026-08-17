@@ -6,6 +6,7 @@ interface TcAuthLogoProps {
   showBadge?: boolean;
   version?: string;
   className?: string;
+  badgeClassName?: string;
   onClick?: () => void;
 }
 
@@ -14,24 +15,25 @@ export const TcAuthLogo: React.FC<TcAuthLogoProps> = ({
   showBadge = true,
   version = 'v1.5.0',
   className = '',
+  badgeClassName = 'hidden sm:inline-flex',
   onClick,
 }) => {
   const iconDimensions = {
     sm: 'w-7 h-7 rounded-lg',
-    md: 'w-9 h-9 rounded-xl',
-    lg: 'w-11 h-11 rounded-2xl',
+    md: 'w-8 h-8 sm:w-9 sm:h-9 rounded-xl',
+    lg: 'w-10 h-10 sm:w-11 sm:h-11 rounded-2xl',
   }[size];
 
   const keyIconDimensions = {
     sm: 'w-3.5 h-3.5',
-    md: 'w-5 h-5',
-    lg: 'w-6 h-6',
+    md: 'w-4 h-4 sm:w-5 sm:h-5',
+    lg: 'w-5 h-5 sm:w-6 sm:h-6',
   }[size];
 
   const textDimensions = {
-    sm: 'text-base',
-    md: 'text-lg',
-    lg: 'text-2xl',
+    sm: 'text-sm sm:text-base',
+    md: 'text-base sm:text-lg',
+    lg: 'text-xl sm:text-2xl',
   }[size];
 
   const badgeDimensions = {
@@ -43,7 +45,7 @@ export const TcAuthLogo: React.FC<TcAuthLogoProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`inline-flex items-center gap-3 select-none ${onClick ? 'cursor-pointer group' : ''} ${className}`}
+      className={`inline-flex items-center gap-2 sm:gap-3 select-none shrink-0 ${onClick ? 'cursor-pointer group' : ''} ${className}`}
     >
       {/* Purple Gradient Squircle Icon with Key */}
       <div
@@ -53,7 +55,7 @@ export const TcAuthLogo: React.FC<TcAuthLogoProps> = ({
       </div>
 
       {/* Brand Name Text: "tc" + "-" + "auth" */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2 sm:gap-2.5">
         <span className={`font-black tracking-tight text-white leading-none ${textDimensions}`}>
           tc<span className="text-[#3b82f6] dark:text-[#4f75ff] px-[1px]">-</span>auth
         </span>
@@ -61,7 +63,7 @@ export const TcAuthLogo: React.FC<TcAuthLogoProps> = ({
         {/* Version Badge Box */}
         {showBadge && (
           <span
-            className={`font-mono font-semibold tracking-wide text-[#8fa0f8] bg-[#141834] border border-[#2a356b] rounded-lg shadow-2xs leading-none whitespace-nowrap ${badgeDimensions}`}
+            className={`font-mono font-semibold tracking-wide text-[#8fa0f8] bg-[#141834] border border-[#2a356b] rounded-lg shadow-2xs leading-none whitespace-nowrap ${badgeDimensions} ${badgeClassName}`}
           >
             {version}
           </span>

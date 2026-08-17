@@ -1,4 +1,5 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'motion/react';
 import { KeyRound, FileCode2, BookOpen, Sparkles, LogIn, Server, Github } from 'lucide-react';
 import { ApiConfigModal } from '../common/ApiConfigModal';
@@ -15,6 +16,7 @@ interface DockItemProps {
   dotColorClass?: string;
   shadowClass?: string;
   hoverBorderClass?: string;
+  isMobile?: boolean;
 }
 
 const DockIcon: React.FC<DockItemProps> = ({
@@ -29,6 +31,7 @@ const DockIcon: React.FC<DockItemProps> = ({
   dotColorClass = 'bg-indigo-400',
   shadowClass = 'shadow-indigo-950/40',
   hoverBorderClass = 'hover:border-indigo-500/40 hover:bg-indigo-500/10',
+  isMobile = false,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -38,14 +41,18 @@ const DockIcon: React.FC<DockItemProps> = ({
     return val - bounds.x - bounds.width / 2;
   });
 
-  const widthSync = useTransform(distance, [-120, 0, 120], [42, 58, 42]);
+  const widthSync = useTransform(
+    distance,
+    [-120, 0, 120],
+    [42, 58, 42]
+  );
   const width = useSpring(widthSync, { mass: 0.08, stiffness: 420, damping: 24 });
 
   return (
-    <div className="relative">
-      {/* Fast, crisp floating tooltip */}
+    <div className="relative shrink-0">
+      {/* Fast, crisp floating tooltip - Desktop only */}
       <AnimatePresence>
-        {isHovered && (
+        {!isMobile && isHovered && (
           <motion.div
             initial={{ opacity: 0, y: 4, scale: 0.94, x: '-50%' }}
             animate={{ opacity: 1, y: -4, scale: 1, x: '-50%' }}
@@ -61,21 +68,23 @@ const DockIcon: React.FC<DockItemProps> = ({
 
       <motion.div
         ref={ref}
-        style={{ width, height: width }}
+        style={isMobile ? undefined : { width, height: width }}
         onClick={onClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        className={`relative flex items-center justify-center rounded-2xl border cursor-pointer select-none transition-colors duration-150 ${
+        onMouseEnter={() => !isMobile && setIsHovered(true)}
+        onMouseLeave={() => !isMobile && setIsHovered(false)}
+        className={`relative flex items-center justify-center rounded-xl sm:rounded-2xl border cursor-pointer select-none transition-colors duration-150 ${
+          isMobile ? 'w-9 h-9' : ''
+        } ${
           active
             ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-500/30'
             : `bg-zinc-900/90 border-zinc-800 text-zinc-400 ${hoverBorderClass}`
         }`}
       >
         {badge && (
-          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-zinc-950 shadow-sm" />
+          <span className="absolute -top-1 -right-1 w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-amber-400 border-2 border-zinc-950 shadow-sm" />
         )}
 
-        <div className="w-5 h-5 flex items-center justify-center pointer-events-none">
+        <div className="w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center pointer-events-none">
           {icon}
         </div>
       </motion.div>
@@ -98,6 +107,23 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
 }) => {
   const mouseX = useMotionValue(Infinity);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 640;
+    }
+    return false;
+  });
+
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleOpenConfig = () => {
     if (onOpenConfig) {
@@ -194,35 +220,46 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
     },
   ];
 
+  const dockContent = (
+    <div
+      role="navigation"
+      aria-label="Floating Navigation Dock"
+      className={`fixed bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 z-[999] max-w-[calc(100vw-1rem)] px-1 sm:px-2 pointer-events-auto select-none ${className}`}
+    >
+      <motion.div
+        onMouseMove={(e) => !isMobile && mouseX.set(e.pageX)}
+        onMouseLeave={() => !isMobile && mouseX.set(Infinity)}
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+        className="flex items-center gap-1 sm:gap-2.5 px-2 sm:px-3.5 py-1.5 sm:py-2.5 rounded-2xl sm:rounded-3xl bg-zinc-950/90 border border-zinc-800/90 backdrop-blur-xl shadow-2xl shadow-indigo-950/40 overflow-visible max-w-full"
+      >
+        {dockItems.map((item, i) => (
+          <DockIcon
+            key={i}
+            mouseX={mouseX}
+            title={item.title}
+            icon={item.icon}
+            onClick={item.onClick}
+            badge={item.badge}
+            active={item.active}
+            textColorClass={item.textColorClass}
+            borderColorClass={item.borderColorClass}
+            dotColorClass={item.dotColorClass}
+            shadowClass={item.shadowClass}
+            hoverBorderClass={item.hoverBorderClass}
+            isMobile={isMobile}
+          />
+        ))}
+      </motion.div>
+    </div>
+  );
+
   return (
     <>
-      <div className={`fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-1rem)] px-2 ${className}`}>
-        <motion.div
-          onMouseMove={(e) => mouseX.set(e.pageX)}
-          onMouseLeave={() => mouseX.set(Infinity)}
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-2xl sm:rounded-3xl bg-zinc-950/90 border border-zinc-800/90 backdrop-blur-xl shadow-2xl shadow-indigo-950/30 overflow-visible max-w-full"
-        >
-          {dockItems.map((item, i) => (
-            <DockIcon
-              key={i}
-              mouseX={mouseX}
-              title={item.title}
-              icon={item.icon}
-              onClick={item.onClick}
-              badge={item.badge}
-              active={item.active}
-              textColorClass={item.textColorClass}
-              borderColorClass={item.borderColorClass}
-              dotColorClass={item.dotColorClass}
-              shadowClass={item.shadowClass}
-              hoverBorderClass={item.hoverBorderClass}
-            />
-          ))}
-        </motion.div>
-      </div>
+      {mounted && typeof document !== 'undefined'
+        ? createPortal(dockContent, document.body)
+        : dockContent}
 
       <ApiConfigModal isOpen={isConfigOpen} onClose={() => setIsConfigOpen(false)} />
     </>

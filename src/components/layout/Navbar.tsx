@@ -21,12 +21,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, activePat
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-6 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800 transition-colors">
+      <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-3 sm:px-4 md:px-6 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800 transition-colors">
         {/* Left Side: Logo & Mobile Toggle */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={onToggleMobileSidebar}
-            className="p-2 -ml-1 text-zinc-400 hover:text-white rounded-lg md:hidden hover:bg-zinc-900"
+            className="p-1.5 sm:p-2 -ml-0.5 text-zinc-400 hover:text-white rounded-lg md:hidden hover:bg-zinc-900 shrink-0"
             aria-label="Toggle Navigation Menu"
           >
             <Menu className="w-5 h-5" />
@@ -40,33 +40,36 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, activePat
         </div>
 
         {/* Right Side: Status Badge, Mode Switcher, Theme & Profile */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {/* API Server Config Trigger */}
           <button
             onClick={() => setIsConfigModalOpen(true)}
-            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all shadow-2xs cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all shadow-2xs cursor-pointer shrink-0 whitespace-nowrap ${
               apiMode === 'demo'
                 ? 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
                 : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
             }`}
             title="Configure Backend API Server Endpoint"
           >
-            <span className="relative flex h-2 w-2">
+            <span className="relative flex h-2 w-2 shrink-0">
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${apiMode === 'demo' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
               <span className={`relative inline-flex rounded-full h-2 w-2 ${apiMode === 'demo' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
             </span>
-            <span className="font-mono text-[11px] font-semibold">
+            <span className="font-mono text-[11px] font-semibold hidden xs:inline">
               {apiMode === 'demo' ? 'Demo Mode' : 'Live Server'}
             </span>
-            <Settings className={`w-3.5 h-3.5 ml-0.5 ${apiMode === 'demo' ? 'text-amber-400/80' : 'text-emerald-400/80'}`} />
+            <span className="font-mono text-[11px] font-semibold xs:hidden">
+              {apiMode === 'demo' ? 'Demo' : 'Live'}
+            </span>
+            <Settings className={`w-3.5 h-3.5 ml-0.5 shrink-0 ${apiMode === 'demo' ? 'text-amber-400/80' : 'text-emerald-400/80'}`} />
           </button>
 
           {/* User Profile Menu / Auth Buttons */}
           {account ? (
-            <div className="relative">
+            <div className="relative shrink-0">
               <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-2 p-1.5 rounded-xl border border-zinc-800 hover:bg-zinc-900 transition-colors"
+                className="flex items-center gap-2 p-1 sm:p-1.5 rounded-xl border border-zinc-800 hover:bg-zinc-900 transition-colors"
               >
                 <UserAvatar src={account.avatar_url} name={account.name} size="sm" />
                 <div className="text-left hidden lg:block pr-1">
