@@ -1,0 +1,202 @@
+import {
+  Account,
+  ConfigPayload,
+  OAuthLink,
+  OTPRecord,
+  SessionRecord,
+} from '../types';
+
+export const INITIAL_ACCOUNTS: Account[] = [
+  {
+    id: 'acc_01h8x8k9z01',
+    uid: 'uid_admin_001',
+    name: 'Atharv Thakre',
+    handle: 'superadmin',
+    email: 'admin@tcauth.dev',
+    phone: '+1 (555) 019-2831',
+    avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    role: 'superadmin',
+    status: 'active',
+    created_at: '2026-01-10T08:30:00Z',
+    updated_at: '2026-08-01T14:20:00Z',
+  },
+  {
+    id: 'acc_01h8x8k9z02',
+    uid: 'uid_admin_002',
+    name: 'Sarah Chen',
+    handle: 'sarah_admin',
+    email: 'sarah.chen@tcauth.dev',
+    phone: '+1 (555) 014-9921',
+    avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    role: 'admin',
+    status: 'active',
+    created_at: '2026-02-14T11:15:00Z',
+    updated_at: '2026-07-28T09:10:00Z',
+  },
+  {
+    id: 'acc_01h8x8k9z03',
+    uid: 'uid_user_003',
+    name: 'Alex Rivera',
+    handle: 'arivera',
+    email: 'alex.rivera@example.com',
+    phone: '+1 (555) 017-8832',
+    avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    role: 'user',
+    status: 'active',
+    created_at: '2026-03-22T16:45:00Z',
+    updated_at: '2026-08-05T18:00:00Z',
+  },
+  {
+    id: 'acc_01h8x8k9z04',
+    uid: 'uid_user_004',
+    name: 'Marcus Vance',
+    handle: 'mvance',
+    email: 'marcus.vance@example.com',
+    phone: null,
+    avatar_url: null,
+    role: 'user',
+    status: 'pending',
+    created_at: '2026-08-01T09:10:00Z',
+    updated_at: '2026-08-01T09:10:00Z',
+  },
+  {
+    id: 'acc_01h8x8k9z05',
+    uid: 'uid_user_005',
+    name: 'Elena Rostova',
+    handle: 'elena_r',
+    email: 'elena.rostova@example.com',
+    phone: '+1 (555) 012-3344',
+    avatar_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+    role: 'user',
+    status: 'suspended',
+    created_at: '2026-05-19T13:20:00Z',
+    updated_at: '2026-08-02T10:11:00Z',
+  },
+];
+
+export const INITIAL_OAUTH_LINKS: OAuthLink[] = [
+  {
+    id: 'lnk_9901',
+    account_id: 'acc_01h8x8k9z01',
+    provider: 'google',
+    provider_user_id: 'google_1082391028301923',
+    created_at: '2026-01-11T09:00:00Z',
+  },
+  {
+    id: 'lnk_9902',
+    account_id: 'acc_01h8x8k9z01',
+    provider: 'github',
+    provider_user_id: 'github_7721839',
+    created_at: '2026-01-12T14:22:00Z',
+  },
+  {
+    id: 'lnk_9903',
+    account_id: 'acc_01h8x8k9z02',
+    provider: 'google',
+    provider_user_id: 'google_1192837465012',
+    created_at: '2026-02-15T12:00:00Z',
+  },
+  {
+    id: 'lnk_9904',
+    account_id: 'acc_01h8x8k9z03',
+    provider: 'github',
+    provider_user_id: 'github_8829104',
+    created_at: '2026-03-23T10:15:00Z',
+  },
+];
+
+export const INITIAL_OTP_RECORDS: OTPRecord[] = [
+  {
+    id: 'otp_8801',
+    identifier: 'admin@tcauth.dev',
+    purpose: 'login',
+    code_hash: '$2a$12$eImiTXuWVxfM37uY4JANjO4K/8G89z8f8',
+    attempts: 0,
+    expires_at: new Date(Date.now() + 1000 * 60 * 15).toISOString(),
+    created_at: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
+  },
+  {
+    id: 'otp_8802',
+    identifier: 'alex.rivera@example.com',
+    purpose: 'reset',
+    code_hash: '$2a$12$K89s01h8x8k9z01h8x8k9z01',
+    attempts: 1,
+    expires_at: new Date(Date.now() + 1000 * 60 * 5).toISOString(),
+    created_at: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
+  },
+  {
+    id: 'otp_8803',
+    identifier: 'new.user@domain.com',
+    purpose: 'signup',
+    code_hash: '$2a$12$p99238491028301923',
+    attempts: 2,
+    expires_at: new Date(Date.now() - 1000 * 60 * 60).toISOString(), // expired
+    created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+  },
+];
+
+export const INITIAL_SESSIONS: SessionRecord[] = [
+  {
+    id: 'sess_1001',
+    account_id: 'acc_01h8x8k9z01',
+    token_hash: 'th_01h8x8k9z01_current_jwt_hash',
+    ip_address: '192.168.1.102',
+    user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/127.0.0.0 Safari/537.36',
+    expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
+  },
+  {
+    id: 'sess_1002',
+    account_id: 'acc_01h8x8k9z01',
+    token_hash: 'th_01h8x8k9z01_mobile_hash',
+    ip_address: '172.56.21.88',
+    user_agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148',
+    expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString(),
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
+  },
+  {
+    id: 'sess_1003',
+    account_id: 'acc_01h8x8k9z02',
+    token_hash: 'th_01h8x8k9z02_workstation',
+    ip_address: '10.0.0.45',
+    user_agent: 'Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0',
+    expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 5).toISOString(),
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
+  },
+  {
+    id: 'sess_1004',
+    account_id: 'acc_01h8x8k9z03',
+    token_hash: 'th_01h8x8k9z03_home_pc',
+    ip_address: '73.120.99.14',
+    user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36',
+    expires_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // expired
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 8).toISOString(),
+  },
+];
+
+export const INITIAL_CONFIG: ConfigPayload = {
+  email: {
+    host: 'smtp.mailgun.org',
+    port: 587,
+    username: 'postmaster@mg.tcauth.dev',
+    password: 'super_secret_smtp_password_99',
+    sender: 'noreply@tcauth.dev',
+    sender_name: 'tc-auth System Security',
+    use_tls: true,
+  },
+  github: {
+    client_id: 'Ov23li9823kL0923a1',
+    client_secret: 'ghp_secret_key_8892103982019382019',
+    redirect_uri: 'http://localhost:3000/tc-auth/github/callback',
+  },
+  google: {
+    client_id: '992019283019-apps.googleusercontent.com',
+    client_secret: 'GOCSPX-super_secret_google_key_01',
+    redirect_uri: 'http://localhost:3000/tc-auth/google/callback',
+  },
+  jwt: {
+    secret_key: 'tc_auth_jwt_super_secret_hs256_key_2026_xyz',
+    algorithm: 'HS256',
+    session_duration_days: 7,
+  },
+};
