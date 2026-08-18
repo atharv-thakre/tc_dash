@@ -123,13 +123,13 @@ export const DocsPage: React.FC<DocsPageProps> = ({ section = 'lib', docId = 'se
               <ExternalLink className="w-3 h-3 text-slate-400" />
             </a>
             <a
-              href="https://github.com/atharv-thakre/tc-dash"
+              href="https://github.com/atharv-thakre/tc_dash"
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-mono font-semibold text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 rounded-xl transition-colors"
               title="View UI Source Code on GitHub"
             >
-              <span>tc-dash</span>
+              <span>tc_dash</span>
               <ExternalLink className="w-3 h-3 text-slate-400" />
             </a>
           </div>

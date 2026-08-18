@@ -34,7 +34,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, activePat
 
           <TcAuthLogo
             size="md"
-            version="v1.5.0"
+            version="v1.5.1"
             onClick={() => onNavigate('/dashboard')}
           />
         </div>

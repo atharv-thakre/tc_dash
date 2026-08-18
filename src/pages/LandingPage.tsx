@@ -201,7 +201,7 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
           {/* Brand Logo & Version */}
           <TcAuthLogo
             size="md"
-            version="v1.5.0"
+            version="v1.5.1"
             onClick={() => onNavigate('/')}
           />
 
@@ -234,12 +234,12 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
               tc_auth (Python)
             </a>
             <a
-              href="https://github.com/atharv-thakre/tc-dash"
+              href="https://github.com/atharv-thakre/tc_dash"
               target="_blank"
               rel="noreferrer"
               className="hover:text-indigo-400 transition-colors whitespace-nowrap"
             >
-              tc-dash (UI)
+              tc_dash (UI)
             </a>
           </nav>
 
@@ -392,7 +392,7 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
             >
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="font-bold text-white">v1.5.0</span>
+                <span className="font-bold text-white">v1.5.1</span>
                 <span className="text-zinc-600">•</span>
                 <span className="text-indigo-300">Modular Python Auth Suite</span>
               </div>
@@ -842,7 +842,7 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex flex-wrap items-center gap-3">
-              <TcAuthLogo size="sm" version="v1.5.0" />
+              <TcAuthLogo size="sm" version="v1.5.1" />
               <span>•</span>
               <span>Modular Authentication Framework for Python</span>
               <span>•</span>
@@ -870,12 +870,12 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
                 <ArrowRight className="w-3 h-3 -rotate-45" />
               </a>
               <a
-                href="https://github.com/atharv-thakre/tc-dash"
+                href="https://github.com/atharv-thakre/tc_dash"
                 target="_blank"
                 rel="noreferrer"
                 className="hover:text-indigo-400 transition-colors flex items-center gap-1.5 text-zinc-300"
               >
-                <span>GitHub: tc-dash</span>
+                <span>GitHub: tc_dash</span>
                 <ArrowRight className="w-3 h-3 -rotate-45" />
               </a>
               <button onClick={() => onNavigate('/docs/lib/setup')} className="hover:text-indigo-400 cursor-pointer">
@@ -904,7 +904,7 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
               </a>
               <span>•</span>
               <a
-                href="https://github.com/atharv-thakre/tc-dash"
+                href="https://github.com/atharv-thakre/tc_dash"
                 target="_blank"
                 rel="noreferrer"
                 className="hover:text-zinc-400 transition-colors"

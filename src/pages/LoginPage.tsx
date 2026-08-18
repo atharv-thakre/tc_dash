@@ -314,7 +314,7 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
           <div className="flex items-center justify-center gap-2">
             <h1 className="text-2xl font-black tracking-tight text-white">tc-auth</h1>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700/80">
-              <DecryptedText text="v1.5.0" speed={40} maxIterations={8} animateOn="hover" />
+              <DecryptedText text="v1.5.1" speed={40} maxIterations={8} animateOn="hover" />
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">

@@ -94,7 +94,7 @@ export const PlaygroundShowcase: React.FC<PlaygroundShowcaseProps> = ({ onNaviga
     status: jwtStatus,
     iat: Math.floor(Date.now() / 1000),
     exp: jwtStatus === 'active' ? Math.floor(Date.now() / 1000) + 604800 : Math.floor(Date.now() / 1000) - 3600,
-    iss: 'tc_auth_v1.5.0'
+    iss: 'tc_auth_v1.5.1'
   };
   const encodedPayload = btoa(JSON.stringify(payloadObj)).replace(/=/g, '');
   const encodedSig = 'c3VwZXJzZWNyZXRzaWduYXR1cmVoYXNoMTIzNDU2';
@@ -136,7 +136,7 @@ export const PlaygroundShowcase: React.FC<PlaygroundShowcaseProps> = ({ onNaviga
         database: 'connected (PostgreSQL 16.2)',
         status: 'healthy',
         active_sessions_count: 24,
-        auth_engine_version: '1.5.0'
+        auth_engine_version: '1.5.1'
       }
     },
     {

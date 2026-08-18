@@ -109,7 +109,7 @@ export const SidebarAuthorCard: React.FC<SidebarAuthorCardProps> = ({
           </motion.a>
 
           <motion.a
-            href="https://github.com/atharv-thakre/tc-dash"
+            href="https://github.com/atharv-thakre/tc_dash"
             target="_blank"
             rel="noreferrer"
             whileHover={{ scale: 1.03, y: -1 }}
@@ -118,7 +118,7 @@ export const SidebarAuthorCard: React.FC<SidebarAuthorCardProps> = ({
           >
             <div className="flex items-center gap-1.5 min-w-0">
               <Layers className="w-3.5 h-3.5 text-violet-500 dark:text-violet-400 shrink-0" />
-              <span className="truncate font-semibold">tc-dash</span>
+              <span className="truncate font-semibold">tc_dash</span>
             </div>
             <span className="text-[9px] text-slate-400 dark:text-zinc-500 font-sans ml-1 shrink-0">UI ↗</span>
           </motion.a>

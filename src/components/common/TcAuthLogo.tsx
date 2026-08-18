@@ -13,7 +13,7 @@ interface TcAuthLogoProps {
 export const TcAuthLogo: React.FC<TcAuthLogoProps> = ({
   size = 'md',
   showBadge = true,
-  version = 'v1.5.0',
+  version = 'v1.5.1',
   className = '',
   badgeClassName = 'hidden sm:inline-flex',
   onClick,

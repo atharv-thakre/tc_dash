@@ -18,7 +18,7 @@ export const InteractiveTerminal: React.FC = () => {
   const initialHistory: CommandOutput[] = [
     {
       command: 'pip install tc_auth',
-      response: 'Successfully installed tc_auth-1.5.0 fastapi-0.110 pydantic-2.6 sqlalchemy-2.0 PyJWT-2.8 bcrypt-4.1',
+      response: 'Successfully installed tc_auth-1.5.1 fastapi-0.110 pydantic-2.6 sqlalchemy-2.0 PyJWT-2.8 bcrypt-4.1',
       status: 'success',
       timestamp: '00:00:01',
     },
@@ -132,7 +132,7 @@ export const InteractiveTerminal: React.FC = () => {
         <div className="space-y-1 text-zinc-300">
           <div className="text-emerald-400 font-semibold">✓ JWT Signature Verified (HMAC-SHA256)</div>
           <div className="bg-zinc-950 p-2 rounded text-[11px] font-mono text-indigo-300">
-            {JSON.stringify({ aid: 1, sid: 42, role: 'superadmin', exp: 1787404800, iss: 'tc_auth_v1.5.0' }, null, 2)}
+            {JSON.stringify({ aid: 1, sid: 42, role: 'superadmin', exp: 1787404800, iss: 'tc_auth_v1.5.1' }, null, 2)}
           </div>
         </div>
       );
@@ -152,7 +152,7 @@ export const InteractiveTerminal: React.FC = () => {
         </div>
       );
     } else if (lower.startsWith('pip install')) {
-      response = <div className="text-emerald-400">Requirement already satisfied: tc_auth==1.5.0 in /usr/local/lib/python3.11</div>;
+      response = <div className="text-emerald-400">Requirement already satisfied: tc_auth==1.5.1 in /usr/local/lib/python3.11</div>;
     } else {
       response = (
         <div className="text-rose-400">
@@ -262,7 +262,7 @@ export const InteractiveTerminal: React.FC = () => {
         className="p-4 sm:p-5 max-h-[380px] overflow-y-auto space-y-4 cursor-text"
       >
         <div className="text-zinc-500 text-[11px] leading-relaxed">
-          Welcome to tc_auth v1.5.0 interactive shell. Type commands below or click quick actions.
+          Welcome to tc_auth v1.5.1 interactive shell. Type commands below or click quick actions.
           Type <span className="text-indigo-400 font-bold">help</span> to view documentation.
         </div>
 
