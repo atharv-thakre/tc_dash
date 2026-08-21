@@ -13,12 +13,15 @@ import {
   AlertTriangle,
   Radio,
   X,
+  Info,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useApiConfig } from '../../contexts/ApiConfigContext';
 import { Modal } from './Modal';
 import { toast } from 'sonner';
 import { configService } from '../../services/config';
-import { getErrorMessage } from '../../services/apiClient';
+import { getErrorMessage, getErrorDetails, ApiErrorDetails } from '../../services/apiClient';
 
 interface ApiConfigModalProps {
   isOpen: boolean;
@@ -44,10 +47,12 @@ export const ApiConfigModal: React.FC<ApiConfigModalProps> = ({ isOpen, onClose 
 
   // Interactive Live Ping / Pulse State
   const [isPinging, setIsPinging] = useState(false);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [pingResult, setPingResult] = useState<{
     latency: number;
     success: boolean;
     error?: string;
+    details?: ApiErrorDetails;
   } | null>(null);
 
   useEffect(() => {
@@ -101,23 +106,27 @@ export const ApiConfigModal: React.FC<ApiConfigModalProps> = ({ isOpen, onClose 
     }
     setIsPinging(true);
     setPingResult(null);
+    setShowErrorDetails(false);
     const start = performance.now();
     try {
       await configService.testPulse(inputUrl.trim());
       const elapsed = Math.round(performance.now() - start);
       setPingResult({
-        latency: Math.max(12, elapsed),
+        latency: Math.max(10, elapsed),
         success: true,
       });
       toast.success(`Server reachable (${elapsed}ms)`);
     } catch (err: any) {
       const elapsed = Math.round(performance.now() - start);
+      const simpleMsg = getErrorMessage(err, 'Server unreachable');
+      const details = getErrorDetails(err, inputUrl.trim());
       setPingResult({
         latency: elapsed,
         success: false,
-        error: getErrorMessage(err, 'Connection failed'),
+        error: simpleMsg,
+        details,
       });
-      toast.error(getErrorMessage(err, 'Server unreachable'));
+      toast.error(simpleMsg);
     } finally {
       setIsPinging(false);
     }
@@ -271,28 +280,74 @@ export const ApiConfigModal: React.FC<ApiConfigModalProps> = ({ isOpen, onClose 
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
-                  className={`px-3 py-2 rounded-lg border text-xs flex items-center justify-between ${
+                  className={`rounded-xl border text-xs overflow-hidden ${
                     pingResult.success
                       ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
                       : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
                   }`}
                 >
-                  <div className="flex items-center gap-1.5">
-                    {pingResult.success ? (
-                      <>
-                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                        <span className="font-semibold">Endpoint Online (200 OK)</span>
-                      </>
-                    ) : (
-                      <>
-                        <AlertTriangle className="w-4 h-4 text-rose-400" />
-                        <span className="font-semibold">{pingResult.error || 'Server Unreachable'}</span>
-                      </>
-                    )}
+                  <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {pingResult.success ? (
+                        <>
+                          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <span className="font-semibold truncate">Server Online (Pulse OK)</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                          <span className="font-semibold truncate">{pingResult.error || 'Server Unreachable'}</span>
+                        </>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-black/40 text-zinc-300">
+                        {pingResult.latency}ms
+                      </span>
+                      {!pingResult.success && pingResult.details && (
+                        <button
+                          type="button"
+                          onClick={() => setShowErrorDetails(!showErrorDetails)}
+                          className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 rounded-md border border-rose-500/30 transition-colors cursor-pointer"
+                          title="View Technical Details"
+                        >
+                          <Info className="w-3 h-3" />
+                          <span>{showErrorDetails ? 'Hide' : 'Details'}</span>
+                          {showErrorDetails ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-black/40">
-                    {pingResult.latency}ms
-                  </span>
+
+                  {/* Expanded Technical Details */}
+                  {showErrorDetails && pingResult.details && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="px-3 py-2.5 border-t border-rose-800/40 bg-zinc-950/60 font-mono text-[10px] space-y-2 text-zinc-300"
+                    >
+                      <div className="flex justify-between items-center text-zinc-400">
+                        <span className="font-sans font-semibold">Tested URL:</span>
+                        <span className="text-zinc-200 truncate max-w-[220px]">{pingResult.details.url}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-zinc-400">
+                        <span className="font-sans font-semibold">Error Status:</span>
+                        <span className="text-rose-400">{pingResult.details.code || 'ERR_CONNECTION'}</span>
+                      </div>
+                      {pingResult.details.suggestions.length > 0 && (
+                        <div className="pt-1.5 border-t border-zinc-800/80 font-sans">
+                          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Troubleshooting Tips:</p>
+                          <ul className="list-disc list-inside space-y-0.5 text-zinc-300 text-[11px]">
+                            {pingResult.details.suggestions.map((s, idx) => (
+                              <li key={idx}>{s}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

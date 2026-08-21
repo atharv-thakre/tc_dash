@@ -29,12 +29,6 @@ export const BUILTIN_PRESETS: ServerPreset[] = [
     url: '/tc-auth',
     isBuiltin: true,
   },
-  {
-    id: 'local-fastapi-8000',
-    name: 'Local FastAPI (http://localhost:8000/tc-auth)',
-    url: 'http://localhost:8000/tc-auth',
-    isBuiltin: true,
-  },
 ];
 
 export function getCustomPresets(): ServerPreset[] {
@@ -44,7 +38,13 @@ export function getCustomPresets(): ServerPreset[] {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
       return parsed.filter(
-        (p) => p && typeof p.url === 'string' && typeof p.name === 'string' && !p.url.includes('totalchaos.online')
+        (p) =>
+          p &&
+          typeof p.url === 'string' &&
+          typeof p.name === 'string' &&
+          !p.url.includes('totalchaos.online') &&
+          !p.url.includes('localhost:8000') &&
+          !p.url.includes('127.0.0.1:8000')
       );
     }
     return [];
@@ -95,7 +95,7 @@ export function normalizeBaseUrl(input?: string | null): string {
     return trimmed.length > 1 ? trimmed.replace(/\/+$/, '') : trimmed;
   }
 
-  // If missing protocol (e.g. localhost:8000, 127.0.0.1:8000, api.example.com)
+  // If missing protocol (e.g. localhost:5000, 127.0.0.1:5000, api.example.com)
   if (!/^https?:\/\//i.test(trimmed)) {
     if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?/i.test(trimmed)) {
       trimmed = `http://${trimmed}`;
@@ -111,7 +111,7 @@ export function normalizeBaseUrl(input?: string | null): string {
 export function getCustomBaseUrl(): string {
   try {
     const url = localStorage.getItem(LOCAL_STORAGE_CUSTOM_URL_KEY);
-    if (!url || !url.trim() || url.includes('totalchaos.online')) {
+    if (!url || !url.trim() || url.includes('totalchaos.online') || url.includes('localhost:8000') || url.includes('127.0.0.1:8000')) {
       localStorage.setItem(LOCAL_STORAGE_CUSTOM_URL_KEY, DEFAULT_BASE_URL);
       return DEFAULT_BASE_URL;
     }
@@ -257,7 +257,7 @@ export function generateCandidateEndpoints(endpoints: string[], targetBaseUrl?: 
     add(withSlash);
     add(withoutSlash);
 
-    // If base URL does not have /tc-auth prefix (e.g. user set base URL to http://localhost:8000)
+    // If base URL does not have /tc-auth prefix (e.g. user set base URL to custom backend root)
     // but the backend router is mounted at /tc-auth (which is standard for tc_auth library)
     if (!baseHasTcAuth) {
       const tcPrefixed = `/tc-auth${withoutSlash}`;
@@ -330,8 +330,21 @@ export async function requestWithFallback<T>(
   throw lastError;
 }
 
+export interface ApiErrorDetails {
+  title: string;
+  message: string;
+  status?: number;
+  statusText?: string;
+  code?: string;
+  url?: string;
+  method?: string;
+  timestamp: string;
+  responseData?: any;
+  suggestions: string[];
+}
+
 /**
- * Extracts a clear, user-friendly error message from Axios errors or generic thrown objects.
+ * Extracts a concise, clean, non-bloated user error message.
  */
 export function getErrorMessage(err: any, fallbackMessage: string = 'An error occurred'): string {
   if (!err) return fallbackMessage;
@@ -339,7 +352,7 @@ export function getErrorMessage(err: any, fallbackMessage: string = 'An error oc
 
   const responseData = err.response?.data;
   if (responseData) {
-    if (typeof responseData === 'string') return responseData;
+    if (typeof responseData === 'string' && responseData.length < 150) return responseData;
     if (responseData.detail && typeof responseData.detail === 'string') return responseData.detail;
     if (responseData.message && typeof responseData.message === 'string') return responseData.message;
     if (responseData.error && typeof responseData.error === 'string') return responseData.error;
@@ -350,20 +363,72 @@ export function getErrorMessage(err: any, fallbackMessage: string = 'An error oc
 
   // Network errors or CORS failures
   if (err.code === 'ERR_NETWORK' || err.message === 'Network Error' || (!err.response && err.request)) {
-    const currentUrl = getCustomBaseUrl();
-    return `Network Error: Unable to reach backend server at ${currentUrl}. Please verify that the server is running, the URL is correct, and CORS allows origins.`;
+    return 'Unable to reach backend server';
+  }
+
+  if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+    return 'Request timed out';
   }
 
   if (err.response?.status === 403) {
-    return '403 Forbidden: You do not have permission to access this endpoint (Superadmin privileges or valid auth session required).';
+    return 'Forbidden: Admin authorization required';
   }
   if (err.response?.status === 401) {
-    return '401 Unauthorized: Please sign in with an authorized account.';
+    return 'Unauthorized: Invalid credentials or session expired';
   }
   if (err.response?.status === 404) {
-    return '404 Not Found: The requested API endpoint or resource was not found on the backend.';
+    return 'Endpoint or resource not found (404)';
+  }
+  if (err.response?.status === 422) {
+    return 'Validation failed on submitted data';
+  }
+  if (err.response?.status === 500) {
+    return 'Internal server error (500)';
   }
 
-  return err.message || fallbackMessage;
+  return err.message && err.message.length < 120 ? err.message : fallbackMessage;
+}
+
+/**
+ * Extracts full technical error details for the "View Details" info toggle.
+ */
+export function getErrorDetails(err: any, targetUrl?: string): ApiErrorDetails {
+  const currentUrl = targetUrl || getCustomBaseUrl();
+  const status = err?.response?.status;
+  const statusText = err?.response?.statusText;
+  const code = err?.code || (err?.response ? `HTTP_${status}` : 'ERR_CONNECTION');
+  const method = err?.config?.method?.toUpperCase() || 'GET';
+  const url = err?.config?.url ? `${err.config.baseURL || ''}${err.config.url}` : currentUrl;
+  const responseData = err?.response?.data;
+  const message = getErrorMessage(err);
+
+  const suggestions: string[] = [];
+
+  if (err?.code === 'ERR_NETWORK' || err?.message === 'Network Error' || !err?.response) {
+    suggestions.push(`Verify backend server is actively listening on "${currentUrl}"`);
+    suggestions.push('Check if CORS allows cross-origin requests from this web domain');
+    if (currentUrl.includes('devtunnels.ms') || currentUrl.includes('ngrok')) {
+      suggestions.push('For Dev Tunnels or ngrok, ensure the tunnel is active and port access is set to Public');
+    }
+    suggestions.push('Switch to "Demo Mock" mode above if you want to explore offline');
+  } else if (status === 404) {
+    suggestions.push('The requested API route was not found on the backend.');
+    suggestions.push('Check if the router is mounted at root or at `/tc-auth`');
+  } else if (status === 401 || status === 403) {
+    suggestions.push('Ensure your JWT token is valid and user has appropriate SuperAdmin role.');
+  }
+
+  return {
+    title: status ? `HTTP Error ${status}${statusText ? ` (${statusText})` : ''}` : (err?.name || 'Network Connection Error'),
+    message,
+    status,
+    statusText,
+    code,
+    url,
+    method,
+    timestamp: new Date().toISOString(),
+    responseData,
+    suggestions,
+  };
 }
 

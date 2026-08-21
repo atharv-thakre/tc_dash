@@ -57,14 +57,12 @@ export const configService = {
     }
 
     const targetBaseUrl = overrideUrl ? normalizeBaseUrl(overrideUrl) : getCustomBaseUrl();
-    const candidateEndpoints = generateCandidateEndpoints(
-      ['/config/pulse', '/config/pulse/', '/pulse', '/pulse/', '/health', '/api/pulse', '/'],
-      targetBaseUrl
-    );
+    const candidateEndpoints = ['/config/pulse', '/config/pulse/', '/pulse'];
 
+    // Fast instant check without hanging timeout (2000ms max)
     const client = axios.create({
       baseURL: targetBaseUrl,
-      timeout: 8000,
+      timeout: 2000,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -83,10 +81,17 @@ export const configService = {
         };
       } catch (err: any) {
         lastError = err;
-        if (err.response?.status === 404 || err.response?.status === 405 || err.response?.status === 307) {
+        // If network error (e.g. server down, invalid domain, CORS, connection refused), fail INSTANTLY without retrying
+        if (err.code === 'ERR_NETWORK' || err.message === 'Network Error' || !err.response) {
+          throw err;
+        }
+
+        // If 404 or 405 route mismatch, try next candidate once
+        if (err.response?.status === 404 || err.response?.status === 405) {
           continue;
         }
-        // If server gave 401, 403, or other non-404 status, it is alive and responding!
+
+        // If server gave 401, 403, or other status, it is alive and responding!
         if (err.response && err.response.status < 500) {
           return {
             system_time: new Date().toISOString(),

@@ -22,6 +22,9 @@ import {
   Zap,
   Sparkles,
   ShieldCheck,
+  Info,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,7 +33,7 @@ import { authService } from '../services/auth';
 import { configService, PulseResponse } from '../services/config';
 import { FormField } from '../components/common/FormField';
 import { ProviderButton } from '../components/common/ProviderButton';
-import { getErrorMessage } from '../services/apiClient';
+import { getErrorMessage, getErrorDetails, ApiErrorDetails } from '../services/apiClient';
 import { BorderBeam } from '../components/reactbits/BorderBeam';
 import { DecryptedText } from '../components/reactbits/DecryptedText';
 import { ParticlesBackground } from '../components/reactbits/ParticlesBackground';
@@ -72,6 +75,8 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
   const [isTestingPulse, setIsTestingPulse] = useState(false);
   const [pulseResult, setPulseResult] = useState<PulseResponse | null>(null);
   const [pulseError, setPulseError] = useState<string | null>(null);
+  const [pulseErrorDetails, setPulseErrorDetails] = useState<ApiErrorDetails | null>(null);
+  const [showPulseErrorDetails, setShowPulseErrorDetails] = useState(false);
 
   // Server Endpoint Settings
   const [showServerSettings, setShowServerSettings] = useState(false);
@@ -261,14 +266,18 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
     setIsTestingPulse(true);
     setPulseResult(null);
     setPulseError(null);
+    setPulseErrorDetails(null);
+    setShowPulseErrorDetails(false);
     try {
       const res = await configService.testPulse(inputUrl.trim());
       setPulseResult(res);
-      toast.success(`Server Pulse OK: status=${res.status}, state=${res.state}`);
+      toast.success(`Server Pulse OK: status=${res.status}`);
     } catch (err: any) {
-      const msg = getErrorMessage(err, 'Pulse connection check failed.');
-      setPulseError(msg);
-      toast.error(msg);
+      const simpleMsg = getErrorMessage(err, 'Server unreachable');
+      const details = getErrorDetails(err, inputUrl.trim());
+      setPulseError(simpleMsg);
+      setPulseErrorDetails(details);
+      toast.error(simpleMsg);
     } finally {
       setIsTestingPulse(false);
     }
@@ -413,12 +422,53 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
           )}
 
           {pulseError && (
-            <div className="p-3.5 rounded-xl bg-rose-950/40 border border-rose-800/50 text-xs space-y-1.5 shadow-inner animate-in fade-in duration-150">
-              <div className="flex items-center gap-1.5 font-bold text-xs text-rose-300">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>Pulse Connection Failed</span>
+            <div className="rounded-2xl bg-rose-950/40 border border-rose-800/50 text-xs overflow-hidden shadow-inner animate-in fade-in duration-150">
+              <div className="p-3.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="font-bold text-xs text-rose-300">Connection Failed</p>
+                    <p className="text-[11px] text-rose-200/90 font-sans truncate">{pulseError}</p>
+                  </div>
+                </div>
+
+                {pulseErrorDetails && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPulseErrorDetails(!showPulseErrorDetails)}
+                    className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 rounded-lg border border-rose-500/30 transition-colors cursor-pointer shrink-0"
+                    title="View Technical Details"
+                  >
+                    <Info className="w-3.5 h-3.5" />
+                    <span>{showPulseErrorDetails ? 'Hide' : 'Details'}</span>
+                    {showPulseErrorDetails ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
+                )}
               </div>
-              <div className="text-[11px] text-rose-200/90 font-sans leading-relaxed">{pulseError}</div>
+
+              {/* Expandable Technical Details */}
+              {showPulseErrorDetails && pulseErrorDetails && (
+                <div className="px-3.5 py-3 border-t border-rose-800/40 bg-zinc-950/70 font-mono text-[11px] space-y-2 text-zinc-300">
+                  <div className="flex justify-between items-center text-zinc-400">
+                    <span className="font-sans font-semibold">Target URL:</span>
+                    <span className="text-zinc-200 truncate max-w-[200px]">{pulseErrorDetails.url}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-zinc-400">
+                    <span className="font-sans font-semibold">Status / Code:</span>
+                    <span className="text-rose-400">{pulseErrorDetails.code || 'ERR_CONNECTION'}</span>
+                  </div>
+                  {pulseErrorDetails.suggestions.length > 0 && (
+                    <div className="pt-2 border-t border-zinc-800/80 font-sans">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Suggestions:</p>
+                      <ul className="list-disc list-inside space-y-0.5 text-zinc-300 text-[11px]">
+                        {pulseErrorDetails.suggestions.map((s, idx) => (
+                          <li key={idx}>{s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
