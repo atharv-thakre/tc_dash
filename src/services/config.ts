@@ -1,5 +1,13 @@
+import axios from 'axios';
 import { ConfigPayload, EmailConfig, JWTConfig, OAuthConfig } from '../types';
-import { apiClient, getStoredApiMode, requestWithFallback } from './apiClient';
+import {
+  apiClient,
+  generateCandidateEndpoints,
+  getCustomBaseUrl,
+  getStoredApiMode,
+  normalizeBaseUrl,
+  requestWithFallback,
+} from './apiClient';
 import { INITIAL_CONFIG } from './mockData';
 
 const DEMO_CONFIG_KEY = 'tc_auth_demo_config';
@@ -36,9 +44,9 @@ export interface PulseResponse {
 }
 
 export const configService = {
-  // GET /config/pulse
-  async testPulse(): Promise<PulseResponse> {
-    if (getStoredApiMode() === 'demo') {
+  // GET /config/pulse - optionally testing a specific candidate URL
+  async testPulse(overrideUrl?: string): Promise<PulseResponse> {
+    if (!overrideUrl && getStoredApiMode() === 'demo') {
       await new Promise((resolve) => setTimeout(resolve, 250));
       return {
         system_time: new Date().toISOString(),
@@ -47,19 +55,51 @@ export const configService = {
         state: 'active (Demo Mock)',
       };
     }
-    const resData = await requestWithFallback<any>('get', [
-      '/config/pulse',
-      '/config/pulse/',
-      '/pulse',
-      '/pulse/',
-    ]);
-    const payload = resData?.data || resData || {};
-    return {
-      system_time: payload.system_time || new Date().toISOString(),
-      response: payload.response ?? 'Hello',
-      status: payload.status || 'healthy',
-      state: payload.state || 'active',
-    };
+
+    const targetBaseUrl = overrideUrl ? normalizeBaseUrl(overrideUrl) : getCustomBaseUrl();
+    const candidateEndpoints = generateCandidateEndpoints(
+      ['/config/pulse', '/config/pulse/', '/pulse', '/pulse/', '/health', '/api/pulse', '/'],
+      targetBaseUrl
+    );
+
+    const client = axios.create({
+      baseURL: targetBaseUrl,
+      timeout: 8000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    let lastError: any;
+    for (const ep of candidateEndpoints) {
+      try {
+        const res = await client.get(ep);
+        const payload = res.data?.data || res.data || {};
+        return {
+          system_time: payload.system_time || new Date().toISOString(),
+          response: typeof payload === 'string' ? payload : payload.response ?? 'Hello',
+          status: payload.status || 'healthy',
+          state: payload.state || 'active',
+        };
+      } catch (err: any) {
+        lastError = err;
+        if (err.response?.status === 404 || err.response?.status === 405 || err.response?.status === 307) {
+          continue;
+        }
+        // If server gave 401, 403, or other non-404 status, it is alive and responding!
+        if (err.response && err.response.status < 500) {
+          return {
+            system_time: new Date().toISOString(),
+            response: `Server reachable (HTTP ${err.response.status})`,
+            status: `online (${err.response.status})`,
+            state: 'active',
+          };
+        }
+        throw err;
+      }
+    }
+
+    throw lastError || new Error(`Unable to reach backend pulse at ${targetBaseUrl}`);
   },
 
   // GET /config/counts

@@ -262,20 +262,23 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
     setPulseResult(null);
     setPulseError(null);
     try {
-      const res = await configService.testPulse();
+      const res = await configService.testPulse(inputUrl.trim());
       setPulseResult(res);
       toast.success(`Server Pulse OK: status=${res.status}, state=${res.state}`);
     } catch (err: any) {
       const msg = getErrorMessage(err, 'Pulse connection check failed.');
       setPulseError(msg);
+      toast.error(msg);
     } finally {
       setIsTestingPulse(false);
     }
   };
 
   const handleSaveUrl = () => {
-    setBaseUrl(inputUrl);
-    toast.success(`Server URL updated: ${inputUrl || '/tc-auth'}`);
+    const target = inputUrl.trim() || 'https://api.codesena.me/tc-auth';
+    setBaseUrl(target);
+    setApiMode('live');
+    toast.success(`Server URL updated: ${target}`);
   };
 
   return (

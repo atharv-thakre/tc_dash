@@ -29,6 +29,12 @@ export const BUILTIN_PRESETS: ServerPreset[] = [
     url: '/tc-auth',
     isBuiltin: true,
   },
+  {
+    id: 'local-fastapi-8000',
+    name: 'Local FastAPI (http://localhost:8000/tc-auth)',
+    url: 'http://localhost:8000/tc-auth',
+    isBuiltin: true,
+  },
 ];
 
 export function getCustomPresets(): ServerPreset[] {
@@ -48,7 +54,7 @@ export function getCustomPresets(): ServerPreset[] {
 }
 
 export function saveCustomPreset(name: string, url: string): ServerPreset {
-  const cleanedUrl = url.trim().replace(/\/+$/, '');
+  const cleanedUrl = normalizeBaseUrl(url);
   const presets = getCustomPresets();
   const newPreset: ServerPreset = {
     id: 'custom-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
@@ -77,20 +83,55 @@ export function setStoredApiMode(mode: ApiMode) {
   localStorage.setItem(LOCAL_STORAGE_API_MODE_KEY, mode);
 }
 
-export function getCustomBaseUrl(): string {
-  const url = localStorage.getItem(LOCAL_STORAGE_CUSTOM_URL_KEY);
-  if (!url || !url.trim() || url.includes('totalchaos.online')) {
-    localStorage.setItem(LOCAL_STORAGE_CUSTOM_URL_KEY, DEFAULT_BASE_URL);
-    return DEFAULT_BASE_URL;
+/**
+ * Normalizes any user-entered backend URL (accepts localhost, IP addresses, domains, relative paths).
+ */
+export function normalizeBaseUrl(input?: string | null): string {
+  if (!input || !input.trim()) return DEFAULT_BASE_URL;
+  let trimmed = input.trim();
+
+  // If it's a relative path starting with '/', preserve it (e.g. /tc-auth, /api)
+  if (trimmed.startsWith('/')) {
+    return trimmed.length > 1 ? trimmed.replace(/\/+$/, '') : trimmed;
   }
-  const trimmed = url.trim();
-  // Ensure no trailing slashes for clean concatenation with endpoint paths
-  return trimmed.endsWith('/') && trimmed.length > 1 ? trimmed.replace(/\/+$/, '') : trimmed;
+
+  // If missing protocol (e.g. localhost:8000, 127.0.0.1:8000, api.example.com)
+  if (!/^https?:\/\//i.test(trimmed)) {
+    if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?/i.test(trimmed)) {
+      trimmed = `http://${trimmed}`;
+    } else {
+      trimmed = `https://${trimmed}`;
+    }
+  }
+
+  // Remove trailing slashes for clean concatenation with endpoint paths
+  return trimmed.replace(/\/+$/, '');
 }
 
-export function setCustomBaseUrl(url: string) {
-  const cleaned = url ? url.trim().replace(/\/+$/, '') : DEFAULT_BASE_URL;
-  localStorage.setItem(LOCAL_STORAGE_CUSTOM_URL_KEY, cleaned || DEFAULT_BASE_URL);
+export function getCustomBaseUrl(): string {
+  try {
+    const url = localStorage.getItem(LOCAL_STORAGE_CUSTOM_URL_KEY);
+    if (!url || !url.trim() || url.includes('totalchaos.online')) {
+      localStorage.setItem(LOCAL_STORAGE_CUSTOM_URL_KEY, DEFAULT_BASE_URL);
+      return DEFAULT_BASE_URL;
+    }
+    return normalizeBaseUrl(url);
+  } catch {
+    return DEFAULT_BASE_URL;
+  }
+}
+
+export function setCustomBaseUrl(url: string): string {
+  const normalized = normalizeBaseUrl(url);
+  try {
+    localStorage.setItem(LOCAL_STORAGE_CUSTOM_URL_KEY, normalized);
+  } catch {
+    // ignore
+  }
+  if (apiClient && apiClient.defaults) {
+    apiClient.defaults.baseURL = normalized;
+  }
+  return normalized;
 }
 
 export const apiClient = axios.create({
@@ -103,7 +144,11 @@ export const apiClient = axios.create({
 // Request interceptor for authorization header and dynamic base URL
 apiClient.interceptors.request.use(
   (config) => {
-    config.baseURL = getCustomBaseUrl();
+    const currentBaseUrl = getCustomBaseUrl();
+    config.baseURL = currentBaseUrl;
+    if (apiClient && apiClient.defaults) {
+      apiClient.defaults.baseURL = currentBaseUrl;
+    }
     const token = localStorage.getItem(LOCAL_STORAGE_TOKEN_KEY);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -191,6 +236,47 @@ export function normalizeArrayResponse<T>(data: any): T[] {
 }
 
 /**
+ * Intelligently generates endpoint candidates considering router prefixes (like /tc-auth or /) and trailing slashes.
+ */
+export function generateCandidateEndpoints(endpoints: string[], targetBaseUrl?: string): string[] {
+  const currentBase = targetBaseUrl ? normalizeBaseUrl(targetBaseUrl) : getCustomBaseUrl();
+  const baseHasTcAuth = /\/tc[-_]auth(\/|$)/i.test(currentBase);
+  const result: string[] = [];
+
+  const add = (p: string) => {
+    if (p && !result.includes(p)) result.push(p);
+  };
+
+  for (const ep of endpoints) {
+    const cleanEp = ep.startsWith('/') ? ep : `/${ep}`;
+    add(cleanEp);
+
+    // Add trailing slash and non-trailing slash variants
+    const withSlash = cleanEp.endsWith('/') ? cleanEp : `${cleanEp}/`;
+    const withoutSlash = cleanEp.endsWith('/') ? cleanEp.replace(/\/+$/, '') : cleanEp;
+    add(withSlash);
+    add(withoutSlash);
+
+    // If base URL does not have /tc-auth prefix (e.g. user set base URL to http://localhost:8000)
+    // but the backend router is mounted at /tc-auth (which is standard for tc_auth library)
+    if (!baseHasTcAuth) {
+      const tcPrefixed = `/tc-auth${withoutSlash}`;
+      add(tcPrefixed);
+      add(`${tcPrefixed}/`);
+    } else {
+      // If base URL DOES have /tc-auth prefix, but backend routes might be mounted at root
+      const strippedTcAuth = cleanEp.replace(/^\/tc[-_]auth/, '');
+      if (strippedTcAuth) {
+        add(strippedTcAuth);
+        add(strippedTcAuth.endsWith('/') ? strippedTcAuth : `${strippedTcAuth}/`);
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
  * Tries multiple endpoint paths sequentially until one succeeds, handling 404/405 route variations across different backend implementations.
  */
 export async function requestWithFallback<T>(
@@ -199,8 +285,11 @@ export async function requestWithFallback<T>(
   payloadOrConfig?: any,
   config?: any
 ): Promise<T> {
+  const currentBase = getCustomBaseUrl();
+  const candidates = generateCandidateEndpoints(endpoints, currentBase);
   let lastError: any;
-  for (const ep of endpoints) {
+
+  for (const ep of candidates) {
     try {
       if (method === 'get') {
         const res = await apiClient.get<T>(ep, payloadOrConfig);
@@ -225,8 +314,13 @@ export async function requestWithFallback<T>(
       }
     } catch (err: any) {
       lastError = err;
-      // If 404, 405, or 403 (due to trailing slash or route format mismatch), try next endpoint fallback
-      if (err.response?.status === 404 || err.response?.status === 405 || err.response?.status === 403) {
+      // If 404, 405, or 307/308 redirect, try next candidate
+      if (
+        err.response?.status === 404 ||
+        err.response?.status === 405 ||
+        err.response?.status === 307 ||
+        err.response?.status === 308
+      ) {
         continue;
       }
       // For other status codes (e.g., 400, 401, 422, 500), throw directly
@@ -254,6 +348,12 @@ export function getErrorMessage(err: any, fallbackMessage: string = 'An error oc
     }
   }
 
+  // Network errors or CORS failures
+  if (err.code === 'ERR_NETWORK' || err.message === 'Network Error' || (!err.response && err.request)) {
+    const currentUrl = getCustomBaseUrl();
+    return `Network Error: Unable to reach backend server at ${currentUrl}. Please verify that the server is running, the URL is correct, and CORS allows origins.`;
+  }
+
   if (err.response?.status === 403) {
     return '403 Forbidden: You do not have permission to access this endpoint (Superadmin privileges or valid auth session required).';
   }
@@ -261,7 +361,7 @@ export function getErrorMessage(err: any, fallbackMessage: string = 'An error oc
     return '401 Unauthorized: Please sign in with an authorized account.';
   }
   if (err.response?.status === 404) {
-    return '404 Not Found: The requested API endpoint or resource was not found.';
+    return '404 Not Found: The requested API endpoint or resource was not found on the backend.';
   }
 
   return err.message || fallbackMessage;

@@ -37,8 +37,8 @@ export const ApiConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const setBaseUrl = (url: string) => {
-    saveCustomBaseUrl(url);
-    setBaseUrlState(url);
+    const normalized = saveCustomBaseUrl(url);
+    setBaseUrlState(normalized);
   };
 
   const addPreset = (name: string, url: string): ServerPreset => {

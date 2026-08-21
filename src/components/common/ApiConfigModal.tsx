@@ -18,6 +18,7 @@ import { useApiConfig } from '../../contexts/ApiConfigContext';
 import { Modal } from './Modal';
 import { toast } from 'sonner';
 import { configService } from '../../services/config';
+import { getErrorMessage } from '../../services/apiClient';
 
 interface ApiConfigModalProps {
   isOpen: boolean;
@@ -62,7 +63,8 @@ export const ApiConfigModal: React.FC<ApiConfigModalProps> = ({ isOpen, onClose 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setApiMode(selectedMode);
-    setBaseUrl(inputUrl.trim());
+    const targetUrl = inputUrl.trim() || 'https://api.codesena.me/tc-auth';
+    setBaseUrl(targetUrl);
     toast.success('API configuration updated successfully');
     onClose();
   };
@@ -101,7 +103,7 @@ export const ApiConfigModal: React.FC<ApiConfigModalProps> = ({ isOpen, onClose 
     setPingResult(null);
     const start = performance.now();
     try {
-      await configService.testPulse();
+      await configService.testPulse(inputUrl.trim());
       const elapsed = Math.round(performance.now() - start);
       setPingResult({
         latency: Math.max(12, elapsed),
@@ -113,9 +115,9 @@ export const ApiConfigModal: React.FC<ApiConfigModalProps> = ({ isOpen, onClose 
       setPingResult({
         latency: elapsed,
         success: false,
-        error: err?.message || 'Connection failed',
+        error: getErrorMessage(err, 'Connection failed'),
       });
-      toast.error(`Server unreachable`);
+      toast.error(getErrorMessage(err, 'Server unreachable'));
     } finally {
       setIsPinging(false);
     }
