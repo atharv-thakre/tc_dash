@@ -22,6 +22,7 @@ import { useApiConfig } from '../contexts/ApiConfigContext';
 import { authService } from '../services/auth';
 import { FormField } from '../components/common/FormField';
 import { ProviderButton } from '../components/common/ProviderButton';
+import { SITE_VERSION_LABEL } from '../config/version';
 import { BorderBeam } from '../components/reactbits/BorderBeam';
 import { ParticlesBackground } from '../components/reactbits/ParticlesBackground';
 import { ShinyText } from '../components/reactbits/ShinyText';
@@ -191,7 +192,7 @@ export const SignupPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
           <div className="flex items-center justify-center gap-2">
             <h1 className="text-2xl font-black tracking-tight text-white">Create Account</h1>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700/80">
-              <DecryptedText text="v1.5.1" speed={40} maxIterations={8} animateOn="hover" />
+              <DecryptedText text={SITE_VERSION_LABEL} speed={40} maxIterations={8} animateOn="hover" />
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ConfigPayload, EmailConfig, JWTConfig, OAuthConfig } from '../types';
+import { ConfigPayload, EmailConfig, JWTConfig, OAuthConfig, StandardActionResponse } from '../types';
 import {
   apiClient,
   generateCandidateEndpoints,
@@ -57,7 +57,10 @@ export const configService = {
     }
 
     const targetBaseUrl = overrideUrl ? normalizeBaseUrl(overrideUrl) : getCustomBaseUrl();
-    const candidateEndpoints = ['/config/pulse', '/config/pulse/', '/pulse'];
+    const baseHasTcAuth = /\/tc[-_]auth(\/|$)/i.test(targetBaseUrl);
+    const candidateEndpoints = baseHasTcAuth
+      ? ['/config/pulse', '/config/pulse/', '/pulse', '/pulse/']
+      : ['/config/pulse', '/config/pulse/', '/tc-auth/config/pulse', '/tc-auth/config/pulse/', '/pulse'];
 
     // Fast instant check without hanging timeout (2000ms max)
     const client = axios.create({
@@ -158,54 +161,67 @@ export const configService = {
   },
 
   // POST /config/email
-  async updateEmailConfig(input: EmailConfig): Promise<null> {
+  async updateEmailConfig(input: EmailConfig): Promise<StandardActionResponse> {
     if (getStoredApiMode() === 'demo') {
       await new Promise((resolve) => setTimeout(resolve, 400));
       const conf = getDemoConfig();
       conf.email = { ...conf.email, ...input };
       saveDemoConfig(conf);
-      return null;
+      return { success: true, message: 'Email service configured successfully' };
     }
     const resData = await requestWithFallback<any>('post', ['/config/email', '/config/email/'], input);
-    return resData?.data || resData;
+    return resData?.data || resData || { success: true, message: 'Email service configured successfully' };
   },
 
   // POST /config/github
-  async updateGithubConfig(input: OAuthConfig): Promise<null> {
+  async updateGithubConfig(input: OAuthConfig): Promise<StandardActionResponse> {
     if (getStoredApiMode() === 'demo') {
       await new Promise((resolve) => setTimeout(resolve, 400));
       const conf = getDemoConfig();
       conf.github = { ...conf.github, ...input };
       saveDemoConfig(conf);
-      return null;
+      return { success: true, message: 'GitHub OAuth configured successfully' };
     }
     const resData = await requestWithFallback<any>('post', ['/config/github', '/config/github/'], input);
-    return resData?.data || resData;
+    return resData?.data || resData || { success: true, message: 'GitHub OAuth configured successfully' };
   },
 
   // POST /config/google
-  async updateGoogleConfig(input: OAuthConfig): Promise<null> {
+  async updateGoogleConfig(input: OAuthConfig): Promise<StandardActionResponse> {
     if (getStoredApiMode() === 'demo') {
       await new Promise((resolve) => setTimeout(resolve, 400));
       const conf = getDemoConfig();
       conf.google = { ...conf.google, ...input };
       saveDemoConfig(conf);
-      return null;
+      return { success: true, message: 'Google OAuth configured successfully' };
     }
     const resData = await requestWithFallback<any>('post', ['/config/google', '/config/google/'], input);
-    return resData?.data || resData;
+    return resData?.data || resData || { success: true, message: 'Google OAuth configured successfully' };
+  },
+
+  // POST /config/discord
+  async updateDiscordConfig(input: OAuthConfig): Promise<StandardActionResponse> {
+    if (getStoredApiMode() === 'demo') {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      const conf = getDemoConfig();
+      conf.discord = { ...conf.discord, ...input };
+      saveDemoConfig(conf);
+      return { success: true, message: 'Discord OAuth configured successfully' };
+    }
+    const resData = await requestWithFallback<any>('post', ['/config/discord', '/config/discord/'], input);
+    return resData?.data || resData || { success: true, message: 'Discord OAuth configured successfully' };
   },
 
   // POST /config/jwt
-  async updateJwtConfig(input: JWTConfig): Promise<null> {
+  async updateJwtConfig(input: JWTConfig): Promise<StandardActionResponse> {
     if (getStoredApiMode() === 'demo') {
       await new Promise((resolve) => setTimeout(resolve, 400));
       const conf = getDemoConfig();
       conf.jwt = { ...conf.jwt, ...input };
       saveDemoConfig(conf);
-      return null;
+      return { success: true, message: 'JWT configured successfully' };
     }
     const resData = await requestWithFallback<any>('post', ['/config/jwt', '/config/jwt/'], input);
-    return resData?.data || resData;
+    return resData?.data || resData || { success: true, message: 'JWT configured successfully' };
   },
 };

@@ -6,6 +6,7 @@ import { Badge } from '../common/Badge';
 import { UserAvatar } from '../common/UserAvatar';
 import { ApiConfigModal } from '../common/ApiConfigModal';
 import { TcAuthLogo } from '../common/TcAuthLogo';
+import { SITE_VERSION_LABEL } from '../../config/version';
 
 interface NavbarProps {
   onToggleMobileSidebar: () => void;
@@ -34,7 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, activePat
 
           <TcAuthLogo
             size="md"
-            version="v1.5.1"
+            version={SITE_VERSION_LABEL}
             onClick={() => onNavigate('/dashboard')}
           />
         </div>

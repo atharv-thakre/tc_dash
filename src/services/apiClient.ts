@@ -3,6 +3,7 @@ import axios from 'axios';
 export const DEFAULT_BASE_URL = 'https://api.codesena.me/tc-auth';
 
 export const LOCAL_STORAGE_TOKEN_KEY = 'tc_auth_access_token';
+export const LOCAL_STORAGE_REFRESH_TOKEN_KEY = 'tc_auth_refresh_token';
 export const LOCAL_STORAGE_API_MODE_KEY = 'tc_auth_api_mode';
 export const LOCAL_STORAGE_CUSTOM_URL_KEY = 'tc_auth_custom_url';
 export const LOCAL_STORAGE_CUSTOM_PRESETS_KEY = 'tc_auth_custom_presets';
@@ -24,9 +25,9 @@ export const BUILTIN_PRESETS: ServerPreset[] = [
     isBuiltin: true,
   },
   {
-    id: 'local-proxy',
-    name: 'Local Proxy (/tc-auth)',
-    url: '/tc-auth',
+    id: 'localhost-8000',
+    name: 'Local Backend (localhost:8000)',
+    url: 'http://localhost:8000/tc-auth',
     isBuiltin: true,
   },
 ];
@@ -43,8 +44,7 @@ export function getCustomPresets(): ServerPreset[] {
           typeof p.url === 'string' &&
           typeof p.name === 'string' &&
           !p.url.includes('totalchaos.online') &&
-          !p.url.includes('localhost:8000') &&
-          !p.url.includes('127.0.0.1:8000')
+          p.url !== '/tc-auth'
       );
     }
     return [];
@@ -111,7 +111,7 @@ export function normalizeBaseUrl(input?: string | null): string {
 export function getCustomBaseUrl(): string {
   try {
     const url = localStorage.getItem(LOCAL_STORAGE_CUSTOM_URL_KEY);
-    if (!url || !url.trim() || url.includes('totalchaos.online') || url.includes('localhost:8000') || url.includes('127.0.0.1:8000')) {
+    if (!url || !url.trim() || url === '/tc-auth' || url.includes('totalchaos.online')) {
       localStorage.setItem(LOCAL_STORAGE_CUSTOM_URL_KEY, DEFAULT_BASE_URL);
       return DEFAULT_BASE_URL;
     }
@@ -149,6 +149,15 @@ apiClient.interceptors.request.use(
     if (apiClient && apiClient.defaults) {
       apiClient.defaults.baseURL = currentBaseUrl;
     }
+
+    // Strip hardcoded /tc-auth prefix from endpoint if base URL already includes /tc-auth
+    if (config.url) {
+      const baseHasTcAuth = /\/tc[-_]auth(\/|$)/i.test(currentBaseUrl);
+      if (baseHasTcAuth && /^\/?tc[-_]auth(\/|$)/i.test(config.url)) {
+        config.url = config.url.replace(/^\/?tc[-_]auth(\/|$)/i, '/');
+      }
+    }
+
     const token = localStorage.getItem(LOCAL_STORAGE_TOKEN_KEY);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -164,6 +173,7 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem(LOCAL_STORAGE_TOKEN_KEY);
+      localStorage.removeItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY);
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
     }
     return Promise.reject(error);
@@ -236,7 +246,8 @@ export function normalizeArrayResponse<T>(data: any): T[] {
 }
 
 /**
- * Intelligently generates endpoint candidates considering router prefixes (like /tc-auth or /) and trailing slashes.
+ * Intelligently generates endpoint candidates considering whether the base URL already has /tc-auth or not.
+ * Ensures /tc-auth is never duplicated or hardcoded, while gracefully supporting base URLs with or without /tc-auth.
  */
 export function generateCandidateEndpoints(endpoints: string[], targetBaseUrl?: string): string[] {
   const currentBase = targetBaseUrl ? normalizeBaseUrl(targetBaseUrl) : getCustomBaseUrl();
@@ -248,7 +259,10 @@ export function generateCandidateEndpoints(endpoints: string[], targetBaseUrl?: 
   };
 
   for (const ep of endpoints) {
-    const cleanEp = ep.startsWith('/') ? ep : `/${ep}`;
+    // Strip /tc-auth from endpoint if present so routes never hardcode /tc-auth
+    const strippedEp = ep.replace(/^\/?tc[-_]auth(\/|$)/i, '/').replace(/^\/+/, '/');
+    const cleanEp = strippedEp.startsWith('/') ? strippedEp : `/${strippedEp}`;
+
     add(cleanEp);
 
     // Add trailing slash and non-trailing slash variants
@@ -257,19 +271,12 @@ export function generateCandidateEndpoints(endpoints: string[], targetBaseUrl?: 
     add(withSlash);
     add(withoutSlash);
 
-    // If base URL does not have /tc-auth prefix (e.g. user set base URL to custom backend root)
-    // but the backend router is mounted at /tc-auth (which is standard for tc_auth library)
+    // If base URL does not have /tc-auth prefix (e.g. user set base URL to custom backend root without /tc-auth)
+    // but the backend router is mounted at /tc-auth, provide tc-auth prefixed variants as fallbacks
     if (!baseHasTcAuth) {
       const tcPrefixed = `/tc-auth${withoutSlash}`;
       add(tcPrefixed);
       add(`${tcPrefixed}/`);
-    } else {
-      // If base URL DOES have /tc-auth prefix, but backend routes might be mounted at root
-      const strippedTcAuth = cleanEp.replace(/^\/tc[-_]auth/, '');
-      if (strippedTcAuth) {
-        add(strippedTcAuth);
-        add(strippedTcAuth.endsWith('/') ? strippedTcAuth : `${strippedTcAuth}/`);
-      }
     }
   }
 

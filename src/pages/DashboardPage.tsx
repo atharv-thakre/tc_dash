@@ -29,6 +29,7 @@ import { formatDate } from '../lib/utils';
 import { AnimatedCounter } from '../components/reactbits/AnimatedCounter';
 import { BorderBeam } from '../components/reactbits/BorderBeam';
 import { DecryptedText } from '../components/reactbits/DecryptedText';
+import { SITE_VERSION_LABEL } from '../config/version';
 
 export const DashboardPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
   const { account, session, payload, isSuperAdmin, refetchMe } = useAuth();
@@ -87,9 +88,14 @@ export const DashboardPage: React.FC<{ onNavigate: (path: string) => void }> = (
         title="Dashboard Overview"
         description="Real-time authentication system telemetry, active token claims, and administrative shortcuts."
         badge={
-          <Badge variant={isSuperAdmin ? 'purple' : 'info'} icon={<ShieldCheck className="w-3.5 h-3.5" />}>
-            <span className="font-semibold">{account?.role || 'Guest'}</span>
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={isSuperAdmin ? 'purple' : 'info'} icon={<ShieldCheck className="w-3.5 h-3.5" />}>
+              <span className="font-semibold">{account?.role || 'Guest'}</span>
+            </Badge>
+            <Badge variant="neutral" className="font-mono text-[10px] hidden xs:inline-flex">
+              {SITE_VERSION_LABEL}
+            </Badge>
+          </div>
         }
         action={
           <button
@@ -276,7 +282,7 @@ export const DashboardPage: React.FC<{ onNavigate: (path: string) => void }> = (
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Authenticated Identity Context</h3>
-              <p className="text-xs text-zinc-400 font-mono">GET /tc-auth/account/me</p>
+              <p className="text-xs text-zinc-400 font-mono">GET /me</p>
             </div>
           </div>
 

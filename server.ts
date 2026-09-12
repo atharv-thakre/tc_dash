@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
+import { tcAuthRouter } from "./src/server/tcAuthRouter.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +17,10 @@ async function startServer() {
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
+
+  // Mount standardized tc-auth backend API routes (supports both /tc-auth prefix and root paths)
+  app.use("/tc-auth", tcAuthRouter);
+  app.use(tcAuthRouter);
 
   // Vite middleware for development vs static serve for production
   if (process.env.NODE_ENV !== "production") {

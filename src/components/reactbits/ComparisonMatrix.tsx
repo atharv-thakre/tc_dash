@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { CheckCircle2, XCircle, AlertCircle, Shield, Sparkles, Layers, DollarSign, Lock, Zap, Server } from 'lucide-react';
 import { BorderBeam } from './BorderBeam';
 import { Magnet } from './Magnet';
+import { SITE_VERSION_LABEL } from '../../config/version';
 
 interface ComparisonMatrixProps {
   onGetStarted?: () => void;
@@ -123,7 +124,7 @@ export const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ onGetStarted
                 <th className="py-4 px-6 text-xs font-mono font-bold uppercase tracking-wider text-indigo-300 w-1/3 bg-indigo-950/40 border-x border-indigo-500/30 relative">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-                    <span>tc_auth v1.5.1 (Open Source)</span>
+                    <span>tc_auth {SITE_VERSION_LABEL} (Open Source)</span>
                   </div>
                 </th>
                 <th className="py-4 px-6 text-xs font-mono font-bold uppercase tracking-wider text-zinc-400 w-1/5">
@@ -207,7 +208,7 @@ export const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ onGetStarted
             <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/40 space-y-1">
               <div className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-indigo-300">
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                tc_auth v1.5.1 (Open Source)
+                tc_auth {SITE_VERSION_LABEL} (Open Source)
               </div>
               <div className="text-xs font-semibold text-zinc-100 flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />

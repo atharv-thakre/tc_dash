@@ -33,6 +33,7 @@ import { authService } from '../services/auth';
 import { configService, PulseResponse } from '../services/config';
 import { FormField } from '../components/common/FormField';
 import { ProviderButton } from '../components/common/ProviderButton';
+import { SITE_VERSION_LABEL } from '../config/version';
 import { getErrorMessage, getErrorDetails, ApiErrorDetails } from '../services/apiClient';
 import { BorderBeam } from '../components/reactbits/BorderBeam';
 import { DecryptedText } from '../components/reactbits/DecryptedText';
@@ -68,6 +69,7 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
   // Forgot / Reset Password State
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotOtp, setForgotOtp] = useState('');
+  const [forgotPasswordInput, setForgotPasswordInput] = useState('');
   const [resetSent, setResetSent] = useState(false);
   const [isSendingReset, setIsSendingReset] = useState(false);
 
@@ -250,10 +252,18 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
       toast.error('Please enter the reset code');
       return;
     }
+    if (forgotPasswordInput && forgotPasswordInput.length < 8) {
+      toast.error('New password must be at least 8 characters');
+      return;
+    }
     setIsLoading(true);
     try {
-      await forgotPassword({ email: forgotEmail, otp: forgotOtp });
-      toast.success('Password verified & signed in successfully.');
+      await forgotPassword({
+        email: forgotEmail,
+        otp: forgotOtp,
+        password: forgotPasswordInput || 'Password123!',
+      });
+      toast.success('Password reset & signed in successfully.');
       onNavigate('/dashboard');
     } catch (err: any) {
       toast.error(getErrorMessage(err, 'Failed to reset password. Check verification code.'));
@@ -326,7 +336,7 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
           <div className="flex items-center justify-center gap-2">
             <h1 className="text-2xl font-black tracking-tight text-white">tc-auth</h1>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700/80">
-              <DecryptedText text="v1.5.1" speed={40} maxIterations={8} animateOn="hover" />
+              <DecryptedText text={SITE_VERSION_LABEL} speed={40} maxIterations={8} animateOn="hover" />
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
@@ -496,7 +506,7 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
                     type="text"
                     value={inputUrl || ''}
                     onChange={(e) => setInputUrl(e.target.value)}
-                    placeholder="https://api.codesena.me/tc-auth or /tc-auth"
+                    placeholder="https://api.codesena.me/tc-auth or http://localhost:8000/tc-auth"
                     className="w-full pl-8 pr-2 py-1.5 text-xs bg-zinc-900 border border-zinc-700/80 rounded-xl text-zinc-100 font-mono focus:ring-2 focus:ring-indigo-500/50"
                   />
                 </div>
@@ -958,6 +968,18 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
                       required={apiMode !== 'demo'}
                       maxLength={12}
                       className="w-full text-center tracking-[0.25em] font-mono text-base py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-indigo-200 placeholder:tracking-normal placeholder:font-sans placeholder:text-zinc-600 placeholder:text-xs focus:ring-2 focus:ring-indigo-500/50"
+                    />
+                  </FormField>
+
+                  <FormField label="New Password" required={apiMode !== 'demo'} hint="Enter your new password (min. 8 characters).">
+                    <input
+                      type="password"
+                      value={forgotPasswordInput}
+                      onChange={(e) => setForgotPasswordInput(e.target.value)}
+                      placeholder="Enter new password (min 8 chars)"
+                      required={apiMode !== 'demo'}
+                      minLength={8}
+                      className="w-full text-sm py-2.5 px-3.5 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-100 placeholder:text-zinc-600 focus:ring-2 focus:ring-indigo-500/50"
                     />
                   </FormField>
 

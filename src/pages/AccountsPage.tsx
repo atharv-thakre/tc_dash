@@ -185,8 +185,8 @@ export const AccountsPage: React.FC = () => {
     if (!deletingAccountId) return;
     setIsSubmitting(true);
     try {
-      await accountsService.deleteAccount(deletingAccountId);
-      toast.success('Account deleted successfully');
+      const res = await accountsService.deleteAccount(deletingAccountId);
+      toast.success(res?.message || 'Account deleted successfully');
       setDeletingAccountId(null);
       fetchAccounts();
     } catch (err: any) {

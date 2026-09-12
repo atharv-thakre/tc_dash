@@ -38,10 +38,19 @@ export const ConfigPage: React.FC = () => {
     redirect_uri: '',
   });
 
+  const [discordForm, setDiscordForm] = useState<OAuthConfig>({
+    client_id: '',
+    client_secret: '',
+    redirect_uri: '',
+  });
+
   const [jwtForm, setJwtForm] = useState<JWTConfig>({
     secret_key: '',
     algorithm: 'HS256',
     session_duration_days: 7,
+    dual_token_mode: true,
+    access_token_expire_minutes: 15,
+    refresh_token_expire_days: 7,
   });
 
   // Secret visibility toggles
@@ -49,6 +58,7 @@ export const ConfigPage: React.FC = () => {
     smtpPassword: false,
     githubSecret: false,
     googleSecret: false,
+    discordSecret: false,
     jwtKey: false,
   });
 
@@ -85,11 +95,21 @@ export const ConfigPage: React.FC = () => {
           redirect_uri: data.google.redirect_uri ?? '',
         });
       }
+      if (data.discord) {
+        setDiscordForm({
+          client_id: data.discord.client_id ?? '',
+          client_secret: data.discord.client_secret ?? '',
+          redirect_uri: data.discord.redirect_uri ?? '',
+        });
+      }
       if (data.jwt) {
         setJwtForm({
           secret_key: data.jwt.secret_key ?? '',
           algorithm: data.jwt.algorithm ?? 'HS256',
           session_duration_days: data.jwt.session_duration_days ?? 7,
+          dual_token_mode: data.jwt.dual_token_mode ?? true,
+          access_token_expire_minutes: data.jwt.access_token_expire_minutes ?? 15,
+          refresh_token_expire_days: data.jwt.refresh_token_expire_days ?? 7,
         });
       }
     } catch (err: any) {
@@ -107,8 +127,8 @@ export const ConfigPage: React.FC = () => {
     e.preventDefault();
     setSavingSection('email');
     try {
-      await configService.updateEmailConfig(emailForm);
-      toast.success('Email (SMTP) configuration updated successfully');
+      const res = await configService.updateEmailConfig(emailForm);
+      toast.success(res?.message || 'Email service configured successfully');
     } catch (err: any) {
       toast.error(getErrorMessage(err, 'Failed to update email config'));
     } finally {
@@ -120,8 +140,8 @@ export const ConfigPage: React.FC = () => {
     e.preventDefault();
     setSavingSection('github');
     try {
-      await configService.updateGithubConfig(githubForm);
-      toast.success('GitHub OAuth configuration updated successfully');
+      const res = await configService.updateGithubConfig(githubForm);
+      toast.success(res?.message || 'GitHub OAuth configured successfully');
     } catch (err: any) {
       toast.error(getErrorMessage(err, 'Failed to update GitHub config'));
     } finally {
@@ -133,10 +153,23 @@ export const ConfigPage: React.FC = () => {
     e.preventDefault();
     setSavingSection('google');
     try {
-      await configService.updateGoogleConfig(googleForm);
-      toast.success('Google OAuth configuration updated successfully');
+      const res = await configService.updateGoogleConfig(googleForm);
+      toast.success(res?.message || 'Google OAuth configured successfully');
     } catch (err: any) {
       toast.error(getErrorMessage(err, 'Failed to update Google config'));
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
+  const handleSaveDiscord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSection('discord');
+    try {
+      const res = await configService.updateDiscordConfig(discordForm);
+      toast.success(res?.message || 'Discord OAuth configured successfully');
+    } catch (err: any) {
+      toast.error(getErrorMessage(err, 'Failed to update Discord config'));
     } finally {
       setSavingSection(null);
     }
@@ -146,8 +179,8 @@ export const ConfigPage: React.FC = () => {
     e.preventDefault();
     setSavingSection('jwt');
     try {
-      await configService.updateJwtConfig(jwtForm);
-      toast.success('JWT token configuration updated successfully');
+      const res = await configService.updateJwtConfig(jwtForm);
+      toast.success(res?.message || 'JWT configured successfully');
     } catch (err: any) {
       toast.error(getErrorMessage(err, 'Failed to update JWT config'));
     } finally {
@@ -487,18 +520,101 @@ export const ConfigPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Card 4: JWT */}
+        {/* Card 4: Discord OAuth */}
         <Card className="relative overflow-hidden">
+          {savingSection === 'discord' && <BorderBeam size={200} duration={8} colorFrom="#5865F2" colorTo="#a855f7" />}
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Shield className="w-4 h-4 text-[#5865F2]" />
+              4. Discord OAuth 2.0 Client Config
+            </CardTitle>
+            <CardDescription>Endpoint: `POST /config/discord` — Discord Developer Portal credentials.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSaveDiscord} className="space-y-3.5">
+              <FormField label="Discord Client ID / Application ID" required>
+                <input
+                  type="text"
+                  value={discordForm.client_id || ''}
+                  onChange={(e) => setDiscordForm({ ...discordForm, client_id: e.target.value })}
+                  placeholder="123456789012345678"
+                  required
+                  className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
+                />
+              </FormField>
+
+              <FormField label="Discord Client Secret" required>
+                <div className="relative">
+                  <input
+                    type={showSecrets.discordSecret ? 'text' : 'password'}
+                    value={discordForm.client_secret || ''}
+                    onChange={(e) => setDiscordForm({ ...discordForm, client_secret: e.target.value })}
+                    placeholder="********************************"
+                    required
+                    className="w-full pl-3 pr-9 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSecrets({ ...showSecrets, discordSecret: !showSecrets.discordSecret })}
+                    className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-200"
+                  >
+                    {showSecrets.discordSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </FormField>
+
+              <FormField label="Redirect Callback URI" required>
+                <div className="space-y-1.5">
+                  <input
+                    type="text"
+                    value={discordForm.redirect_uri || ''}
+                    onChange={(e) => setDiscordForm({ ...discordForm, redirect_uri: e.target.value })}
+                    placeholder="http://localhost:3000/tc-auth/discord/callback"
+                    required
+                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
+                  />
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const detected = `${window.location.origin}/tc-auth/discord/callback`;
+                        setDiscordForm({ ...discordForm, redirect_uri: detected });
+                        toast.success('Updated Discord Redirect URI');
+                      }}
+                      className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+                    >
+                      + Use Current Origin URI ({window.location.origin}/tc-auth/discord/callback)
+                    </button>
+                  </div>
+                </div>
+              </FormField>
+
+              <div className="pt-3 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={savingSection === 'discord'}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {savingSection === 'discord' ? 'Saving...' : 'Save Discord Config'}
+                </button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Card 5: JWT */}
+        <Card className="relative overflow-hidden lg:col-span-2">
           {savingSection === 'jwt' && <BorderBeam size={200} duration={8} colorFrom="#6366f1" colorTo="#a855f7" />}
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Key className="w-4 h-4 text-purple-500" />
-              4. JWT Token & Session Security Config
+              5. JWT Token & Dual-Token Security Config
             </CardTitle>
-            <CardDescription>Endpoint: `POST /config/jwt` — Secret key, algorithm, and token lifetime.</CardDescription>
+            <CardDescription>Endpoint: `POST /config/jwt` — Secret key, algorithm, session duration, and dual-token refresh settings.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSaveJwt} className="space-y-3.5">
+            <form onSubmit={handleSaveJwt} className="space-y-4">
               <FormField label="Secret Signing Key" required>
                 <div className="relative">
                   <input
@@ -519,7 +635,7 @@ export const ConfigPage: React.FC = () => {
                 </div>
               </FormField>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField label="Algorithm" required>
                   <select
                     value={jwtForm.algorithm || 'HS256'}
@@ -533,7 +649,7 @@ export const ConfigPage: React.FC = () => {
                   </select>
                 </FormField>
 
-                <FormField label="Session Duration (Days)" required>
+                <FormField label="Fallback Session Duration (Days)" required>
                   <input
                     type="number"
                     value={jwtForm.session_duration_days ?? ''}
@@ -544,6 +660,50 @@ export const ConfigPage: React.FC = () => {
                     className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
                   />
                 </FormField>
+              </div>
+
+              {/* Dual Token Mode Section */}
+              <div className="p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-semibold text-indigo-300">Dual-Token Authentication Mode</span>
+                    <p className="text-[11px] text-zinc-400">Issues short-lived access tokens and long-lived refresh tokens with automatic rotation.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={jwtForm.dual_token_mode ?? true}
+                      onChange={(e) => setJwtForm({ ...jwtForm, dual_token_mode: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                  </label>
+                </div>
+
+                {jwtForm.dual_token_mode && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-indigo-500/10">
+                    <FormField label="Access Token Expire (Minutes)">
+                      <input
+                        type="number"
+                        value={jwtForm.access_token_expire_minutes ?? 15}
+                        onChange={(e) => setJwtForm({ ...jwtForm, access_token_expire_minutes: Number(e.target.value) })}
+                        min={1}
+                        max={1440}
+                        className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
+                      />
+                    </FormField>
+                    <FormField label="Refresh Token Expire (Days)">
+                      <input
+                        type="number"
+                        value={jwtForm.refresh_token_expire_days ?? 7}
+                        onChange={(e) => setJwtForm({ ...jwtForm, refresh_token_expire_days: Number(e.target.value) })}
+                        min={1}
+                        max={90}
+                        className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
+                      />
+                    </FormField>
+                  </div>
+                )}
               </div>
 
               <div className="pt-3 flex justify-end">

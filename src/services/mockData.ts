@@ -194,9 +194,17 @@ export const INITIAL_CONFIG: ConfigPayload = {
     client_secret: 'GOCSPX-super_secret_google_key_01',
     redirect_uri: 'http://localhost:3000/tc-auth/google/callback',
   },
+  discord: {
+    client_id: '123456789012345678',
+    client_secret: 'discord_client_secret_demo_99',
+    redirect_uri: 'http://localhost:3000/tc-auth/discord/callback',
+  },
   jwt: {
     secret_key: 'tc_auth_jwt_super_secret_hs256_key_2026_xyz',
     algorithm: 'HS256',
     session_duration_days: 7,
+    dual_token_mode: false,
+    access_token_expire_minutes: 15,
+    refresh_token_expire_days: 7,
   },
 };

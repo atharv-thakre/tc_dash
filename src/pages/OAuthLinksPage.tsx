@@ -131,11 +131,11 @@ export const OAuthLinksPage: React.FC = () => {
     if (!unlinkingItem) return;
     setIsSubmitting(true);
     try {
-      await oauthLinksService.deleteLink({
+      const res = await oauthLinksService.deleteLink({
         account_id: unlinkingItem.account_id,
         provider: unlinkingItem.provider,
       });
-      toast.success('OAuth link removed successfully');
+      toast.success(res?.message || 'OAuth link removed successfully');
       setUnlinkingItem(null);
       fetchLinks();
     } catch (err: any) {

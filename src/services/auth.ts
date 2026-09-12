@@ -9,7 +9,14 @@ import {
   SignupOTPInput,
   SignupPasswordInput,
 } from '../types';
-import { apiClient, getCustomBaseUrl, getStoredApiMode, LOCAL_STORAGE_TOKEN_KEY, requestWithFallback } from './apiClient';
+import {
+  apiClient,
+  getCustomBaseUrl,
+  getStoredApiMode,
+  LOCAL_STORAGE_REFRESH_TOKEN_KEY,
+  LOCAL_STORAGE_TOKEN_KEY,
+  requestWithFallback,
+} from './apiClient';
 import { INITIAL_ACCOUNTS } from './mockData';
 
 // Local storage key for demo accounts
@@ -35,6 +42,7 @@ export function saveDemoAccounts(accounts: any[]) {
 function extractAuthResponse(resData: any): AuthResponse {
   const payload = resData?.data || resData || {};
   const access_token = payload.access_token || payload.token || payload.accessToken || payload.jwt || '';
+  const refresh_token = payload.refresh_token || payload.refreshToken || undefined;
   const token_type = payload.token_type || payload.tokenType || 'Bearer';
   const account = payload.account || payload.user || payload.account_data || payload.data?.account || payload.data?.user || null;
 
@@ -42,8 +50,13 @@ function extractAuthResponse(resData: any): AuthResponse {
     throw new Error('Invalid authentication response from server. Please check server connection.');
   }
 
+  if (refresh_token) {
+    localStorage.setItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY, refresh_token);
+  }
+
   return {
     access_token,
+    refresh_token,
     token_type,
     account: account || {
       id: payload.id || 'acc_unknown',
@@ -263,12 +276,17 @@ export const authService = {
       localStorage.setItem(LOCAL_STORAGE_TOKEN_KEY, response.access_token);
       return response;
     }
+    const payload = {
+      email: input.email,
+      otp: input.otp,
+      password: input.password || 'NewPassword123!',
+    };
     const resData = await requestWithFallback<any>('post', [
       '/forgot/password',
       '/forgot/password/',
       '/forgot-password',
       '/auth/forgot-password',
-    ], input);
+    ], payload);
     const authRes = extractAuthResponse(resData);
     if (authRes.access_token) {
       localStorage.setItem(LOCAL_STORAGE_TOKEN_KEY, authRes.access_token);
@@ -276,23 +294,41 @@ export const authService = {
     return authRes;
   },
 
-  getOAuthLoginUrl(provider: 'google' | 'github'): string {
+  getOAuthLoginUrl(provider: 'google' | 'github' | 'discord'): string {
     const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
     const baseUrl = getCustomBaseUrl();
     const slash = baseUrl.endsWith('/') ? '' : '/';
     return `${baseUrl}${slash}${provider}/login?frontend_url=${encodeURIComponent(origin)}`;
   },
 
-  async loginOAuthDemo(provider: 'google' | 'github'): Promise<AuthResponse> {
+  async loginOAuthDemo(provider: 'google' | 'github' | 'discord'): Promise<AuthResponse> {
     await new Promise((resolve) => setTimeout(resolve, 600));
     const accounts = getDemoAccounts();
-    const isGoogle = provider === 'google';
-    const email = isGoogle ? 'alex.google@tcauth.dev' : 'sam.github@tcauth.dev';
-    const name = isGoogle ? 'Alex Google User' : 'Sam GitHub Dev';
-    const handle = isGoogle ? 'alex_google' : 'sam_github';
-    const avatar_url = isGoogle
-      ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
-      : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80';
+    const emailMap: Record<string, string> = {
+      google: 'alex.google@tcauth.dev',
+      github: 'sam.github@tcauth.dev',
+      discord: 'taylor.discord@tcauth.dev',
+    };
+    const nameMap: Record<string, string> = {
+      google: 'Alex Google User',
+      github: 'Sam GitHub Dev',
+      discord: 'Taylor Discord User',
+    };
+    const handleMap: Record<string, string> = {
+      google: 'alex_google',
+      github: 'sam_github',
+      discord: 'taylor_discord',
+    };
+    const avatarMap: Record<string, string> = {
+      google: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      github: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+      discord: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    };
+
+    const email = emailMap[provider] || `${provider}@tcauth.dev`;
+    const name = nameMap[provider] || `${provider} User`;
+    const handle = handleMap[provider] || `${provider}_user`;
+    const avatar_url = avatarMap[provider] || null;
 
     let acc = accounts.find((a: any) => a.email.toLowerCase() === email.toLowerCase());
     if (!acc) {
@@ -315,10 +351,56 @@ export const authService = {
 
     const response: AuthResponse = {
       access_token: `tc_demo_oauth_token_${provider}_${acc.id}_${Date.now()}`,
+      refresh_token: `tc_jwt_ref_demo_${acc.id}_${Date.now()}`,
       token_type: 'Bearer',
       account: acc,
     };
     localStorage.setItem(LOCAL_STORAGE_TOKEN_KEY, response.access_token);
+    if (response.refresh_token) {
+      localStorage.setItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY, response.refresh_token);
+    }
     return response;
+  },
+
+  // POST /token/refresh
+  async refreshToken(tokenToRefresh?: string): Promise<{ access_token: string; refresh_token: string; token_type: string }> {
+    const refreshTokenValue = tokenToRefresh || localStorage.getItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY);
+    if (!refreshTokenValue) {
+      throw new Error('No refresh token available');
+    }
+
+    if (getStoredApiMode() === 'demo') {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const newAccess = `tc_demo_token_refreshed_${Date.now()}`;
+      const newRefresh = `tc_jwt_ref_demo_${Date.now()}`;
+      localStorage.setItem(LOCAL_STORAGE_TOKEN_KEY, newAccess);
+      localStorage.setItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY, newRefresh);
+      return {
+        access_token: newAccess,
+        refresh_token: newRefresh,
+        token_type: 'Bearer',
+      };
+    }
+
+    const resData = await requestWithFallback<any>('post', [
+      '/token/refresh',
+      '/token/refresh/',
+      '/auth/refresh',
+    ], { refresh_token: refreshTokenValue });
+
+    const payload = resData?.data || resData || {};
+    const access_token = payload.access_token || payload.accessToken;
+    const new_refresh_token = payload.refresh_token || payload.refreshToken || refreshTokenValue;
+    if (access_token) {
+      localStorage.setItem(LOCAL_STORAGE_TOKEN_KEY, access_token);
+    }
+    if (new_refresh_token) {
+      localStorage.setItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY, new_refresh_token);
+    }
+    return {
+      access_token,
+      refresh_token: new_refresh_token,
+      token_type: payload.token_type || 'Bearer',
+    };
   },
 };

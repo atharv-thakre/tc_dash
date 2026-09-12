@@ -28,7 +28,8 @@ interface AuthContextType {
   signupOTP: (input: SignupOTPInput) => Promise<void>;
   forgotPassword: (input: ForgotPasswordInput) => Promise<void>;
   patchMe: (input: PatchMeInput) => Promise<void>;
-  loginOAuth: (provider: 'google' | 'github') => Promise<void>;
+  loginOAuth: (provider: 'google' | 'github' | 'discord') => Promise<void>;
+  refreshToken: () => Promise<void>;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
   refetchMe: () => Promise<void>;
@@ -151,10 +152,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await fetchMe();
   };
 
-  const loginOAuth = async (provider: 'google' | 'github') => {
+  const loginOAuth = async (provider: 'google' | 'github' | 'discord') => {
     const res = await authService.loginOAuthDemo(provider);
     setToken(res.access_token);
     setAccount(res.account);
+    await fetchMe();
+  };
+
+  const refreshToken = async () => {
+    const res = await authService.refreshToken();
+    setToken(res.access_token);
     await fetchMe();
   };
 
@@ -198,6 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         forgotPassword,
         patchMe,
         loginOAuth,
+        refreshToken,
         logout,
         logoutAll,
         refetchMe: fetchMe,

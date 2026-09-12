@@ -1,4 +1,4 @@
-import { CreateOTPInput, CreateOTPResponse, DeleteOTPInput, OTPRecord } from '../types';
+import { CreateOTPInput, CreateOTPResponse, DeleteOTPInput, OTPRecord, StandardActionResponse } from '../types';
 import {
   apiClient,
   getStoredApiMode,
@@ -128,7 +128,7 @@ export const otpService = {
   },
 
   // DELETE /otp/
-  async deleteOTP(input: DeleteOTPInput): Promise<boolean> {
+  async deleteOTP(input: DeleteOTPInput): Promise<StandardActionResponse> {
     if (getStoredApiMode() === 'demo') {
       await new Promise((resolve) => setTimeout(resolve, 300));
       let records = getDemoOTPRecords();
@@ -137,14 +137,15 @@ export const otpService = {
         (r) => !(r.identifier === input.identifier && r.purpose.toLowerCase() === input.purpose.toLowerCase())
       );
       saveDemoOTPRecords(records);
-      return records.length < initialCount;
+      const count = initialCount - records.length;
+      return { success: true, message: 'OTP revoked successfully', count };
     }
     const resData = await requestWithFallback<any>('delete', ['/otp/', '/otp', '/otps/'], input);
-    return resData === true || resData?.data === true || true;
+    return resData?.data || resData || { success: true, message: 'OTP revoked successfully', count: 1 };
   },
 
   // DELETE /otp/cleanup
-  async cleanupExpired(): Promise<{ count: number }> {
+  async cleanupExpired(): Promise<StandardActionResponse> {
     if (getStoredApiMode() === 'demo') {
       await new Promise((resolve) => setTimeout(resolve, 300));
       let records = getDemoOTPRecords();
@@ -152,21 +153,24 @@ export const otpService = {
       const initialCount = records.length;
       records = records.filter((r) => new Date(r.expires_at).getTime() > now);
       saveDemoOTPRecords(records);
-      return { count: initialCount - records.length };
+      const count = initialCount - records.length;
+      return { success: true, message: 'Expired OTPs cleaned successfully', count };
     }
     const resData = await requestWithFallback<any>('delete', ['/otp/cleanup', '/otps/cleanup', '/otp/cleanup/']);
-    return resData?.data || resData || { count: 0 };
+    return resData?.data || resData || { success: true, message: 'Expired OTPs cleaned successfully', count: 0 };
   },
 
   // DELETE /otp/clear
-  async clearAll(): Promise<null> {
+  async clearAll(): Promise<StandardActionResponse> {
     if (getStoredApiMode() === 'demo') {
       await new Promise((resolve) => setTimeout(resolve, 300));
+      const records = getDemoOTPRecords();
+      const count = records.length;
       saveDemoOTPRecords([]);
-      return null;
+      return { success: true, message: 'All OTPs cleared successfully', count };
     }
-    await requestWithFallback<any>('delete', ['/otp/clear', '/otps/clear', '/otp/clear/']);
-    return null;
+    const resData = await requestWithFallback<any>('delete', ['/otp/clear', '/otps/clear', '/otp/clear/']);
+    return resData?.data || resData || { success: true, message: 'All OTPs cleared successfully', count: 0 };
   },
 };
 

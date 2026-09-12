@@ -1,4 +1,4 @@
-import { Account, CreateAccountInput, PatchAccountInput } from '../types';
+import { Account, CreateAccountInput, PatchAccountInput, StandardActionResponse } from '../types';
 import {
   apiClient,
   getStoredApiMode,
@@ -115,18 +115,18 @@ export const accountsService = {
   },
 
   // DELETE /account/
-  async deleteAccount(account_id: string | number): Promise<null> {
+  async deleteAccount(account_id: string | number): Promise<StandardActionResponse> {
     if (getStoredApiMode() === 'demo') {
       await new Promise((resolve) => setTimeout(resolve, 400));
       let accounts = getDemoAccounts();
       accounts = accounts.filter((a: Account) => String(a.id) !== String(account_id));
       saveDemoAccounts(accounts);
-      return null;
+      return { success: true, message: 'Account deleted successfully' };
     }
     const accStr = String(account_id);
     const parsedId = /^\d+$/.test(accStr) ? Number(accStr) : account_id;
-    await requestWithFallback<any>('delete', ['/account/', '/account', '/accounts/'], { account_id: parsedId });
-    return null;
+    const resData = await requestWithFallback<any>('delete', ['/account/', '/account', '/accounts/'], { account_id: parsedId });
+    return resData?.data || resData || { success: true, message: 'Account deleted successfully' };
   },
 };
 

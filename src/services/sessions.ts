@@ -1,4 +1,4 @@
-import { SessionRecord } from '../types';
+import { SessionRecord, StandardActionResponse } from '../types';
 import {
   apiClient,
   getStoredApiMode,
@@ -87,70 +87,76 @@ export const sessionsService = {
   },
 
   // DELETE /session/
-  async deleteSession(session_id: string | number): Promise<null> {
+  async deleteSession(session_id: string | number): Promise<StandardActionResponse> {
     if (getStoredApiMode() === 'demo') {
       await new Promise((resolve) => setTimeout(resolve, 300));
       let sessions = getDemoSessions();
       sessions = sessions.filter((s) => String(s.id) !== String(session_id));
       saveDemoSessions(sessions);
-      return null;
+      return { success: true, message: 'Session destroyed successfully' };
     }
 
     const idStr = String(session_id);
     const parsedId = /^\d+$/.test(idStr) ? Number(idStr) : session_id;
 
-    await requestWithFallback<any>(
+    const resData = await requestWithFallback<any>(
       'delete',
       ['/session/', '/session', '/sessions/'],
       { session_id: parsedId }
     );
-    return null;
+    return resData?.data || resData || { success: true, message: 'Session destroyed successfully' };
   },
 
   // DELETE /session/all
-  async deleteAllForAccount(account_id: string | number): Promise<null> {
+  async deleteAllForAccount(account_id: string | number): Promise<StandardActionResponse> {
     if (getStoredApiMode() === 'demo') {
       await new Promise((resolve) => setTimeout(resolve, 300));
       let sessions = getDemoSessions();
+      const prevCount = sessions.length;
       sessions = sessions.filter((s) => String(s.account_id) !== String(account_id));
       saveDemoSessions(sessions);
-      return null;
+      const count = prevCount - sessions.length;
+      return { success: true, message: 'All sessions destroyed for account', count };
     }
 
     const accStr = String(account_id);
     const parsedId = /^\d+$/.test(accStr) ? Number(accStr) : account_id;
 
-    await requestWithFallback<any>(
+    const resData = await requestWithFallback<any>(
       'delete',
       ['/session/all', '/session/all/', '/sessions/all'],
       { account_id: parsedId }
     );
-    return null;
+    return resData?.data || resData || { success: true, message: 'All sessions destroyed for account', count: 1 };
   },
 
   // DELETE /session/cleanup
-  async cleanupExpired(): Promise<null> {
+  async cleanupExpired(): Promise<StandardActionResponse> {
     if (getStoredApiMode() === 'demo') {
       await new Promise((resolve) => setTimeout(resolve, 300));
       let sessions = getDemoSessions();
       const now = new Date().getTime();
+      const prevCount = sessions.length;
       sessions = sessions.filter((s) => new Date(s.expires_at).getTime() > now);
       saveDemoSessions(sessions);
-      return null;
+      const count = prevCount - sessions.length;
+      return { success: true, message: 'Expired sessions cleaned up successfully', count };
     }
-    await requestWithFallback<any>('delete', ['/session/cleanup', '/sessions/cleanup', '/session/cleanup/']);
-    return null;
+    const resData = await requestWithFallback<any>('delete', ['/session/cleanup', '/sessions/cleanup', '/session/cleanup/']);
+    return resData?.data || resData || { success: true, message: 'Expired sessions cleaned up successfully', count: 0 };
   },
 
   // DELETE /session/clear
-  async clearAll(): Promise<null> {
+  async clearAll(): Promise<StandardActionResponse> {
     if (getStoredApiMode() === 'demo') {
       await new Promise((resolve) => setTimeout(resolve, 300));
+      const sessions = getDemoSessions();
+      const count = sessions.length;
       saveDemoSessions([]);
-      return null;
+      return { success: true, message: 'All sessions cleared successfully', count };
     }
-    await requestWithFallback<any>('delete', ['/session/clear', '/sessions/clear', '/session/clear/']);
-    return null;
+    const resData = await requestWithFallback<any>('delete', ['/session/clear', '/sessions/clear', '/session/clear/']);
+    return resData?.data || resData || { success: true, message: 'All sessions cleared successfully', count: 0 };
   },
 };
 

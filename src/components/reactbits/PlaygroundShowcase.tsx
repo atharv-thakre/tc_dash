@@ -23,6 +23,7 @@ import { Magnet } from './Magnet';
 import { DecryptedText } from './DecryptedText';
 import { ShinyText } from './ShinyText';
 import { BorderBeam } from './BorderBeam';
+import { SITE_VERSION, AUTH_ENGINE_VERSION_TAG } from '../../config/version';
 
 interface PlaygroundShowcaseProps {
   onNavigateDocs?: () => void;
@@ -94,7 +95,7 @@ export const PlaygroundShowcase: React.FC<PlaygroundShowcaseProps> = ({ onNaviga
     status: jwtStatus,
     iat: Math.floor(Date.now() / 1000),
     exp: jwtStatus === 'active' ? Math.floor(Date.now() / 1000) + 604800 : Math.floor(Date.now() / 1000) - 3600,
-    iss: 'tc_auth_v1.5.1'
+    iss: AUTH_ENGINE_VERSION_TAG
   };
   const encodedPayload = btoa(JSON.stringify(payloadObj)).replace(/=/g, '');
   const encodedSig = 'c3VwZXJzZWNyZXRzaWduYXR1cmVoYXNoMTIzNDU2';
@@ -105,7 +106,7 @@ export const PlaygroundShowcase: React.FC<PlaygroundShowcaseProps> = ({ onNaviga
     {
       id: 'login',
       method: 'POST',
-      path: '/tc-auth/login/password',
+      path: '/login/password',
       desc: 'Verify credentials & issue stateful JWT',
       response: {
         access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhaWQiOjEsInNpZCI6NjAsInJvbGUiOiJzdXBlcmFkbWluIn0...',
@@ -129,20 +130,20 @@ export const PlaygroundShowcase: React.FC<PlaygroundShowcaseProps> = ({ onNaviga
     {
       id: 'pulse',
       method: 'GET',
-      path: '/tc-auth/config/pulse',
+      path: '/config/pulse',
       desc: 'Database health & connection ping',
       response: {
         system_time: new Date().toISOString(),
         database: 'connected (PostgreSQL 16.2)',
         status: 'healthy',
         active_sessions_count: 24,
-        auth_engine_version: '1.5.1'
+        auth_engine_version: SITE_VERSION
       }
     },
     {
       id: 'me',
       method: 'GET',
-      path: '/tc-auth/me',
+      path: '/me',
       desc: 'Retrieve current authenticated caller profile',
       response: {
         authenticated: true,
@@ -156,7 +157,7 @@ export const PlaygroundShowcase: React.FC<PlaygroundShowcaseProps> = ({ onNaviga
     {
       id: 'sessions',
       method: 'GET',
-      path: '/tc-auth/sessions/active',
+      path: '/sessions/active',
       desc: 'Audit active device sessions for current account',
       response: {
         total: 2,

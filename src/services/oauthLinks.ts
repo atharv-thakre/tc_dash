@@ -1,4 +1,4 @@
-import { CreateOAuthLinkInput, DeleteOAuthLinkInput, OAuthLink } from '../types';
+import { CreateOAuthLinkInput, DeleteOAuthLinkInput, OAuthLink, StandardActionResponse } from '../types';
 import {
   apiClient,
   getStoredApiMode,
@@ -123,7 +123,7 @@ export const oauthLinksService = {
   },
 
   // DELETE /oauth/
-  async deleteLink(input: DeleteOAuthLinkInput): Promise<null> {
+  async deleteLink(input: DeleteOAuthLinkInput): Promise<StandardActionResponse> {
     if (getStoredApiMode() === 'demo') {
       await new Promise((resolve) => setTimeout(resolve, 400));
       let links = getDemoOAuthLinks();
@@ -131,10 +131,10 @@ export const oauthLinksService = {
         (l) => !(l.account_id === input.account_id && l.provider.toLowerCase() === input.provider.toLowerCase())
       );
       saveDemoOAuthLinks(links);
-      return null;
+      return { success: true, message: 'OAuth link removed successfully' };
     }
-    await requestWithFallback<any>('delete', ['/oauth/', '/oauth', '/oauth/link'], input);
-    return null;
+    const resData = await requestWithFallback<any>('delete', ['/oauth/', '/oauth', '/oauth/link'], input);
+    return resData?.data || resData || { success: true, message: 'OAuth link removed successfully' };
   },
 };
 

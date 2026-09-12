@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Globe, KeyRound, Lock, LogOut, ShieldAlert, ShieldCheck, UserCheck } from 'lucide-react';
+import { CheckCircle2, Globe, KeyRound, Link2, Link2Off, Lock, LogOut, RefreshCw, ShieldAlert, ShieldCheck, UserCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { profileService } from '../services/profile';
+import { OAuthLink } from '../types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 import { UserAvatar } from '../components/common/UserAvatar';
@@ -17,10 +18,15 @@ import { ProviderButton } from '../components/common/ProviderButton';
 import { BorderBeam } from '../components/reactbits/BorderBeam';
 import { DecryptedText } from '../components/reactbits/DecryptedText';
 import { formatDate } from '../lib/utils';
-import { getErrorMessage } from '../services/apiClient';
+import { getErrorMessage, LOCAL_STORAGE_REFRESH_TOKEN_KEY } from '../services/apiClient';
 
 const updatePasswordSchema = z.object({
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z
+    .string()
+    .min(6, 'Password must be at least 6 characters')
+    .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Must contain at least one number'),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Passwords do not match',
@@ -30,11 +36,18 @@ const updatePasswordSchema = z.object({
 type UpdatePasswordFormData = z.infer<typeof updatePasswordSchema>;
 
 export const ProfilePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
-  const { account, session, payload, logout, logoutAll, isSuperAdmin, patchMe } = useAuth();
+  const { account, session, payload, logout, logoutAll, isSuperAdmin, patchMe, refreshToken } = useAuth();
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isLogoutAllDialogOpen, setIsLogoutAllDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // OAuth Links State
+  const [oauthLinks, setOauthLinks] = useState<OAuthLink[]>([]);
+  const [isLoadingLinks, setIsLoadingLinks] = useState(false);
+  const [unlinkingProvider, setUnlinkingProvider] = useState<string | null>(null);
+  const [isUnlinkConfirmOpen, setIsUnlinkConfirmOpen] = useState(false);
 
   // Profile Edit State
   const [profileName, setProfileName] = useState(account?.name || '');
@@ -43,15 +56,72 @@ export const ProfilePage: React.FC<{ onNavigate: (path: string) => void }> = ({ 
   const [profilePhone, setProfilePhone] = useState(account?.phone || '');
   const [profileAvatarUrl, setProfileAvatarUrl] = useState(account?.avatar_url || '');
 
-  React.useEffect(() => {
+  const loadOAuthLinks = async () => {
+    setIsLoadingLinks(true);
+    try {
+      const links = await profileService.getOAuthLinks();
+      setOauthLinks(links || []);
+    } catch {
+      // Fallback
+      setOauthLinks([]);
+    } finally {
+      setIsLoadingLinks(false);
+    }
+  };
+
+  useEffect(() => {
     if (account) {
       setProfileName(account.name || '');
       setProfileEmail(account.email || '');
       setProfileHandle(account.handle || '');
       setProfilePhone(account.phone || '');
       setProfileAvatarUrl(account.avatar_url || '');
+      loadOAuthLinks();
     }
   }, [account]);
+
+  const handleLinkOAuth = async (provider: 'google' | 'github' | 'discord') => {
+    try {
+      await profileService.linkOAuthProvider(provider);
+      toast.success(`Connected ${provider} successfully`);
+      loadOAuthLinks();
+    } catch (err: any) {
+      toast.error(getErrorMessage(err, `Failed to link ${provider}`));
+    }
+  };
+
+  const handleConfirmUnlink = async () => {
+    if (!unlinkingProvider) return;
+    setIsSubmitting(true);
+    try {
+      const res = await profileService.unlinkOAuthProvider(unlinkingProvider);
+      toast.success(res?.message || `Unlinked ${unlinkingProvider} successfully`);
+      setIsUnlinkConfirmOpen(false);
+      setUnlinkingProvider(null);
+      loadOAuthLinks();
+    } catch (err: any) {
+      toast.error(getErrorMessage(err, `Lockout Prevention: Cannot unlink ${unlinkingProvider}`));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleTestTokenRefresh = async () => {
+    const storedRefresh = localStorage.getItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY);
+    if (!storedRefresh) {
+      toast.error('No refresh token found in local storage. Sign in with dual-token mode enabled.');
+      return;
+    }
+    setIsRefreshing(true);
+    try {
+      const tokens = await refreshToken();
+      toast.success(`Tokens rotated successfully! New access token: ${tokens.access_token.slice(0, 15)}...`);
+    } catch (err: any) {
+      toast.error(getErrorMessage(err, 'Failed to refresh token'));
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,8 +154,8 @@ export const ProfilePage: React.FC<{ onNavigate: (path: string) => void }> = ({ 
   const onSubmitPassword = async (data: UpdatePasswordFormData) => {
     setIsUpdatingPassword(true);
     try {
-      await profileService.updatePassword({ password: data.password });
-      toast.success('Password updated successfully');
+      const res = await profileService.updatePassword({ password: data.password });
+      toast.success(res?.message || 'Password updated successfully');
       reset();
     } catch (err: any) {
       toast.error(getErrorMessage(err, 'Failed to update password'));
@@ -97,8 +167,8 @@ export const ProfilePage: React.FC<{ onNavigate: (path: string) => void }> = ({ 
   const handleConfirmLogoutAll = async () => {
     setIsSubmitting(true);
     try {
-      await logoutAll();
-      toast.success('Logged out from all active sessions');
+      const res = await logoutAll();
+      toast.success(res?.message || 'All sessions destroyed for account');
       setIsLogoutAllDialogOpen(false);
       onNavigate('/login');
     } catch (err: any) {
@@ -320,7 +390,7 @@ export const ProfilePage: React.FC<{ onNavigate: (path: string) => void }> = ({ 
                 <FormField label="New Password" error={errors.password?.message} required>
                   <input
                     type="password"
-                    placeholder="At least 6 characters"
+                    placeholder="At least 6 characters (upper, lower, digit)"
                     {...register('password')}
                     className="w-full px-3.5 py-2 text-sm bg-zinc-900 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 transition-colors"
                   />
@@ -343,6 +413,137 @@ export const ProfilePage: React.FC<{ onNavigate: (path: string) => void }> = ({ 
                   {isUpdatingPassword ? 'Updating...' : 'Update Password'}
                 </button>
               </form>
+            </CardContent>
+          </Card>
+
+          {/* Linked Social Accounts & Safe Unlinking */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Link2 className="w-4 h-4 text-indigo-400" />
+                    Linked Identity Providers (`/account/oauth/*`)
+                  </CardTitle>
+                  <CardDescription>
+                    Connect or disconnect external OAuth logins. Enforces Lockout Prevention (safe unlinking).
+                  </CardDescription>
+                </div>
+                <button
+                  onClick={loadOAuthLinks}
+                  disabled={isLoadingLinks}
+                  className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white"
+                  title="Reload Linked Accounts"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLinks ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(['google', 'github', 'discord'] as const).map((provider) => {
+                const link = oauthLinks.find(
+                  (l) => l.provider.toLowerCase() === provider.toLowerCase()
+                );
+                const isLinked = !!link;
+
+                return (
+                  <div
+                    key={provider}
+                    className="flex items-center justify-between p-3 rounded-xl border border-zinc-800 bg-zinc-900/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center font-bold text-xs uppercase text-zinc-300">
+                        {provider === 'google' ? 'G' : provider === 'github' ? 'GH' : 'DC'}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-zinc-200 capitalize">{provider}</span>
+                          {isLinked ? (
+                            <Badge variant="success" className="text-[10px] py-0 px-1.5 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" /> Connected
+                            </Badge>
+                          ) : (
+                            <Badge variant="neutral" className="text-[10px] py-0 px-1.5">
+                              Not Linked
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-zinc-500 font-mono">
+                          {isLinked
+                            ? `ID: ${link.provider_user_id || 'Linked'} • Added ${formatDate(link.created_at)}`
+                            : `Log in or register with your ${provider} account.`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      {isLinked ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUnlinkingProvider(provider);
+                            setIsUnlinkConfirmOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Link2Off className="w-3 h-3" />
+                          Unlink
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleLinkOAuth(provider)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Link2 className="w-3 h-3" />
+                          Connect
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div className="p-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-[11px] text-amber-300/90 flex items-start gap-2">
+                <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+                <span>
+                  <strong>Lockout Prevention Rule:</strong> You cannot unlink your primary login method if your account does not have a configured password or any other remaining login provider.
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Dual-Token & Session Refresh */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 text-indigo-400" />
+                Dual-Token Session Health (`POST /token/refresh`)
+              </CardTitle>
+              <CardDescription>
+                Validate token rotation and refresh token handling with the live authentication service.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="p-3 rounded-xl border border-zinc-800 bg-zinc-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-semibold text-zinc-200">Active Refresh Token</span>
+                  <p className="text-[11px] text-zinc-400 font-mono break-all">
+                    {localStorage.getItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY)
+                      ? `${localStorage.getItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY)?.slice(0, 32)}...`
+                      : 'No refresh token stored (single session mode)'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleTestTokenRefresh}
+                  disabled={isRefreshing}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-xs transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  {isRefreshing ? 'Rotating...' : 'Rotate Token Now'}
+                </button>
+              </div>
             </CardContent>
           </Card>
 
@@ -389,6 +590,21 @@ export const ProfilePage: React.FC<{ onNavigate: (path: string) => void }> = ({ 
         title="Log Out From All Devices"
         description="Are you sure you want to log out everywhere? This will destroy all active sessions across all browser instances and devices."
         confirmText="Log Out Everywhere"
+        isDestructive
+        isLoading={isSubmitting}
+      />
+
+      {/* Unlink OAuth Provider Dialog */}
+      <ConfirmDialog
+        isOpen={isUnlinkConfirmOpen}
+        onClose={() => {
+          setIsUnlinkConfirmOpen(false);
+          setUnlinkingProvider(null);
+        }}
+        onConfirm={handleConfirmUnlink}
+        title={`Unlink ${unlinkingProvider ? unlinkingProvider.toUpperCase() : 'OAuth'} Provider`}
+        description={`Are you sure you want to unlink ${unlinkingProvider}? You will no longer be able to sign in with this ${unlinkingProvider} account. Note that this will fail if you have no password and no other auth method.`}
+        confirmText="Unlink Account"
         isDestructive
         isLoading={isSubmitting}
       />

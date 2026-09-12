@@ -82,8 +82,8 @@ export const SessionsPage: React.FC = () => {
     if (!revokingSessionId) return;
     setIsSubmitting(true);
     try {
-      await sessionsService.deleteSession(revokingSessionId);
-      toast.success('Session revoked successfully');
+      const res = await sessionsService.deleteSession(revokingSessionId);
+      toast.success(res?.message || 'Session destroyed successfully');
       setRevokingSessionId(null);
       fetchSessions();
     } catch (err: any) {
@@ -101,8 +101,8 @@ export const SessionsPage: React.FC = () => {
     }
     setIsSubmitting(true);
     try {
-      await sessionsService.deleteAllForAccount(targetAccountId);
-      toast.success(`All active sessions revoked for account: ${targetAccountId}`);
+      const res = await sessionsService.deleteAllForAccount(targetAccountId);
+      toast.success(res?.message || `All active sessions revoked for account: ${targetAccountId}`);
       setIsRevokeAllAccountOpen(false);
       setTargetAccountId('');
       fetchSessions();
@@ -116,8 +116,8 @@ export const SessionsPage: React.FC = () => {
   const handleCleanupExpired = async () => {
     setIsSubmitting(true);
     try {
-      await sessionsService.cleanupExpired();
-      toast.success('Expired sessions cleaned up');
+      const res = await sessionsService.cleanupExpired();
+      toast.success(res?.message || 'Expired sessions cleaned up successfully');
       setIsCleanupOpen(false);
       fetchSessions();
     } catch (err: any) {
@@ -130,8 +130,8 @@ export const SessionsPage: React.FC = () => {
   const handleClearAll = async () => {
     setIsSubmitting(true);
     try {
-      await sessionsService.clearAll();
-      toast.success('All active system sessions destroyed');
+      const res = await sessionsService.clearAll();
+      toast.success(res?.message || 'All sessions cleared successfully');
       setIsClearAllOpen(false);
       fetchSessions();
     } catch (err: any) {

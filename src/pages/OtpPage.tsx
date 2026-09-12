@@ -107,11 +107,11 @@ export const OtpPage: React.FC = () => {
     if (!revokingItem) return;
     setIsSubmitting(true);
     try {
-      await otpService.deleteOTP({
+      const res = await otpService.deleteOTP({
         identifier: revokingItem.identifier,
         purpose: revokingItem.purpose,
       });
-      toast.success('OTP record revoked');
+      toast.success(res?.message || 'OTP record revoked');
       setRevokingItem(null);
       fetchRecords();
     } catch (err: any) {
@@ -125,7 +125,7 @@ export const OtpPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       const res = await otpService.cleanupExpired();
-      toast.success(`Cleaned up ${res?.count ?? 0} expired OTP records`);
+      toast.success(res?.message || `Cleaned up ${res?.count ?? 0} expired OTP records`);
       fetchRecords();
     } catch (err: any) {
       toast.error(getErrorMessage(err, 'Failed to cleanup expired records'));
@@ -137,8 +137,8 @@ export const OtpPage: React.FC = () => {
   const handleClearAll = async () => {
     setIsSubmitting(true);
     try {
-      await otpService.clearAll();
-      toast.success('All OTP records cleared');
+      const res = await otpService.clearAll();
+      toast.success(res?.message || 'All OTP records cleared');
       setIsClearAllOpen(false);
       fetchRecords();
     } catch (err: any) {

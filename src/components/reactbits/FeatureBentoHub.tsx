@@ -139,13 +139,13 @@ export const FeatureBentoHub: React.FC<{ onNavigateDocs?: () => void }> = ({ onN
                 {activeStrategy === 'google' && (
                   <div className="flex items-center justify-between text-zinc-300 bg-zinc-950 p-2.5 rounded-lg border border-zinc-800">
                     <span>Protocol: <span className="text-amber-400 font-bold">OpenID Connect + PKCE</span></span>
-                    <span className="text-purple-400">/tc-auth/oauth/google</span>
+                    <span className="text-purple-400">/oauth/google</span>
                   </div>
                 )}
                 {activeStrategy === 'github' && (
                   <div className="flex items-center justify-between text-zinc-300 bg-zinc-950 p-2.5 rounded-lg border border-zinc-800">
                     <span>Protocol: <span className="text-sky-400 font-bold">OAuth 2.0 Bearer Flow</span></span>
-                    <span className="text-sky-400">/tc-auth/oauth/github</span>
+                    <span className="text-sky-400">/oauth/github</span>
                   </div>
                 )}
               </div>

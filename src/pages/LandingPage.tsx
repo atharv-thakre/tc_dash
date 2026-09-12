@@ -55,6 +55,7 @@ import { FeatureBentoHub } from '../components/reactbits/FeatureBentoHub';
 import { PlaygroundShowcase } from '../components/reactbits/PlaygroundShowcase';
 import { ComparisonMatrix } from '../components/reactbits/ComparisonMatrix';
 import { TcAuthLogo } from '../components/common/TcAuthLogo';
+import { SITE_VERSION_LABEL } from '../config/version';
 
 interface LandingPageProps {
   onNavigate: (path: string) => void;
@@ -201,7 +202,7 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
           {/* Brand Logo & Version */}
           <TcAuthLogo
             size="md"
-            version="v1.5.1"
+            version={SITE_VERSION_LABEL}
             onClick={() => onNavigate('/')}
           />
 
@@ -392,7 +393,7 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
             >
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="font-bold text-white">v1.5.1</span>
+                <span className="font-bold text-white">{SITE_VERSION_LABEL}</span>
                 <span className="text-zinc-600">•</span>
                 <span className="text-indigo-300">Modular Python Auth Suite</span>
               </div>
@@ -842,7 +843,7 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex flex-wrap items-center gap-3">
-              <TcAuthLogo size="sm" version="v1.5.1" />
+              <TcAuthLogo size="sm" version={SITE_VERSION_LABEL} />
               <span>•</span>
               <span>Modular Authentication Framework for Python</span>
               <span>•</span>

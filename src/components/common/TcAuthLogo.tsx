@@ -1,5 +1,6 @@
 import React from 'react';
 import { KeyRound } from 'lucide-react';
+import { SITE_VERSION_LABEL } from '../../config/version';
 
 interface TcAuthLogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -13,7 +14,7 @@ interface TcAuthLogoProps {
 export const TcAuthLogo: React.FC<TcAuthLogoProps> = ({
   size = 'md',
   showBadge = true,
-  version = 'v1.5.1',
+  version = SITE_VERSION_LABEL,
   className = '',
   badgeClassName = 'hidden sm:inline-flex',
   onClick,

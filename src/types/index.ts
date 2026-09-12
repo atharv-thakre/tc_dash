@@ -1,9 +1,9 @@
 export type AccountRole = 'superadmin' | 'admin' | 'user';
 export type AccountStatus = 'active' | 'suspended' | 'pending' | 'inactive';
-export type OTPPurpose = 'login' | 'signup' | 'reset';
+export type OTPPurpose = 'login' | 'signup' | 'reset' | 'verify';
 
 export interface Account {
-  id: string;
+  id: string | number;
   uid?: string;
   name: string;
   handle: string;
@@ -17,8 +17,8 @@ export interface Account {
 }
 
 export interface SessionInfo {
-  id: string;
-  account_id: string;
+  id: string | number;
+  account_id: string | number;
   token_hash?: string;
   ip_address?: string;
   user_agent?: string;
@@ -28,8 +28,19 @@ export interface SessionInfo {
 
 export interface AuthResponse {
   access_token: string;
+  refresh_token?: string;
   token_type: string;
   account: Account;
+}
+
+export interface RefreshTokenInput {
+  refresh_token: string;
+}
+
+export interface RefreshTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
 }
 
 export interface MeResponse {
@@ -39,15 +50,20 @@ export interface MeResponse {
 }
 
 export interface OAuthLink {
-  id: string;
-  account_id: string;
+  id: string | number;
+  account_id: string | number;
   provider: string;
   provider_user_id: string;
   created_at: string;
 }
 
+export interface AccountOAuthLinkInput {
+  provider_user_id?: string;
+  frontend_url?: string;
+}
+
 export interface OTPRecord {
-  id: string;
+  id: string | number;
   identifier: string;
   purpose: OTPPurpose | string;
   code_hash?: string;
@@ -62,8 +78,8 @@ export interface CreateOTPResponse {
 }
 
 export interface SessionRecord {
-  id: string;
-  account_id: string;
+  id: string | number;
+  account_id: string | number;
   token_hash?: string;
   ip_address?: string;
   user_agent?: string;
@@ -91,16 +107,26 @@ export interface JWTConfig {
   secret_key?: string;
   algorithm: string;
   session_duration_days: number;
+  dual_token_mode?: boolean;
+  access_token_expire_minutes?: number;
+  refresh_token_expire_days?: number;
 }
 
 export interface ConfigPayload {
   email: EmailConfig;
   github: OAuthConfig;
   google: OAuthConfig;
+  discord: OAuthConfig;
   jwt: JWTConfig;
 }
 
 // Input Types matching API reference exactly
+export interface StandardActionResponse {
+  success: boolean;
+  message: string;
+  count?: number;
+}
+
 export interface SendEmailOTPInput {
   email: string;
 }
@@ -141,6 +167,7 @@ export interface UpdatePasswordInput {
 export interface ForgotPasswordInput {
   email: string;
   otp: string;
+  password?: string;
 }
 
 export interface PatchMeInput {

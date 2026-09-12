@@ -257,7 +257,7 @@ export const ApiConfigModal: React.FC<ApiConfigModalProps> = ({ isOpen, onClose 
                   setInputUrl(e.target.value);
                   setPingResult(null);
                 }}
-                placeholder="https://api.codesena.me/tc-auth or /tc-auth"
+                placeholder="https://api.codesena.me/tc-auth or http://localhost:8000/tc-auth"
                 className="w-full pl-10 pr-24 py-2.5 text-xs sm:text-sm bg-zinc-900/90 border border-zinc-750 rounded-xl font-mono text-zinc-100 placeholder-zinc-600 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/50"
               />
               <div className="absolute right-1.5 top-1.5">

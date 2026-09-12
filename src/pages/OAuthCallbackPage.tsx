@@ -54,7 +54,6 @@ export const OAuthCallbackPage: React.FC<OAuthCallbackPageProps> = ({ provider =
 
         const endpointsToTry = [
           `/${detectedProvider}/callback?code=${encodeURIComponent(code)}`,
-          `/tc-auth/${detectedProvider}/callback?code=${encodeURIComponent(code)}`,
           `/oauth/callback?code=${encodeURIComponent(code)}`,
         ];
 
@@ -122,7 +121,7 @@ export const OAuthCallbackPage: React.FC<OAuthCallbackPageProps> = ({ provider =
               Authenticating with {provider === 'google' ? 'Google' : 'GitHub'}...
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Exchanging authorization token code with <code className="font-mono text-indigo-500">/tc-auth/{provider}/callback</code>
+              Exchanging authorization token code with <code className="font-mono text-indigo-500">/{provider}/callback</code>
             </p>
           </div>
         )}
