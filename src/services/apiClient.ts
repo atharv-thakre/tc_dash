@@ -8,6 +8,36 @@ export const LOCAL_STORAGE_API_MODE_KEY = 'tc_auth_api_mode';
 export const LOCAL_STORAGE_CUSTOM_URL_KEY = 'tc_auth_custom_url';
 export const LOCAL_STORAGE_CUSTOM_PRESETS_KEY = 'tc_auth_custom_presets';
 
+// Standard token storage helper supporting both Single-Token and Dual-Token modes
+export const tokenStorage = {
+  getAccessToken: () =>
+    localStorage.getItem(LOCAL_STORAGE_TOKEN_KEY) || localStorage.getItem('access_token'),
+  getRefreshToken: () =>
+    localStorage.getItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY) || localStorage.getItem('refresh_token'),
+  setTokens: (accessToken: string, refreshToken?: string | null) => {
+    localStorage.setItem(LOCAL_STORAGE_TOKEN_KEY, accessToken);
+    localStorage.setItem('access_token', accessToken);
+    if (refreshToken) {
+      localStorage.setItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY, refreshToken);
+      localStorage.setItem('refresh_token', refreshToken);
+    } else {
+      localStorage.removeItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY);
+      localStorage.removeItem('refresh_token');
+    }
+  },
+  clearTokens: () => {
+    localStorage.removeItem(LOCAL_STORAGE_TOKEN_KEY);
+    localStorage.removeItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY);
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+  },
+  hasRefreshToken: () =>
+    Boolean(
+      localStorage.getItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY) ||
+      localStorage.getItem('refresh_token')
+    ),
+};
+
 export type ApiMode = 'demo' | 'live';
 
 export interface ServerPreset {
@@ -167,15 +197,105 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for error handling
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (err: any) => void;
+}> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else if (token) {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+// Response interceptor for Dual Token Mode: automatic refresh on 401 with rotation
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem(LOCAL_STORAGE_TOKEN_KEY);
-      localStorage.removeItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY);
-      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Check if error is 401 Unauthorized and not already retried
+    const isAuthError = error.response?.status === 401;
+    const isRefreshRequest = originalRequest?.url && (
+      originalRequest.url.includes('/token/refresh') ||
+      originalRequest.url.includes('/refresh')
+    );
+    const isLoginOrPublic = originalRequest?.url && (
+      originalRequest.url.includes('/login') ||
+      originalRequest.url.includes('/signup') ||
+      originalRequest.url.includes('/send/email/otp')
+    );
+
+    if (isAuthError && !originalRequest?._retry && !isRefreshRequest && !isLoginOrPublic) {
+      const storedRefreshToken = tokenStorage.getRefreshToken();
+
+      if (storedRefreshToken) {
+        if (isRefreshing) {
+          // If a refresh is already in flight, queue this request
+          return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          })
+            .then((token) => {
+              if (originalRequest.headers) {
+                originalRequest.headers.Authorization = `Bearer ${token}`;
+              }
+              return apiClient(originalRequest);
+            })
+            .catch((err) => Promise.reject(err));
+        }
+
+        originalRequest._retry = true;
+        isRefreshing = true;
+
+        try {
+          const currentBase = getCustomBaseUrl();
+          const slash = currentBase.endsWith('/') ? '' : '/';
+          const refreshUrl = `${currentBase}${slash}token/refresh`;
+
+          // Execute refresh via bare axios to avoid cyclic interceptor triggers
+          const refreshResponse = await axios.post(
+            refreshUrl,
+            { refresh_token: storedRefreshToken },
+            { headers: { 'Content-Type': 'application/json' }, timeout: 10000 }
+          );
+
+          const payload = refreshResponse.data?.data || refreshResponse.data || {};
+          const newAccessToken = payload.access_token || payload.accessToken || payload.token;
+          const newRefreshToken = payload.refresh_token || payload.refreshToken || storedRefreshToken;
+
+          if (newAccessToken) {
+            tokenStorage.setTokens(newAccessToken, newRefreshToken);
+            apiClient.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+
+            processQueue(null, newAccessToken);
+
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+            }
+            return apiClient(originalRequest);
+          } else {
+            throw new Error('Refresh response did not contain a valid access_token');
+          }
+        } catch (refreshErr) {
+          processQueue(refreshErr, null);
+          tokenStorage.clearTokens();
+          window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+          return Promise.reject(refreshErr);
+        } finally {
+          isRefreshing = false;
+        }
+      } else {
+        tokenStorage.clearTokens();
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      }
     }
+
     return Promise.reject(error);
   }
 );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Layers, Terminal, ShieldCheck, Server, Unlock, Zap, Check } from 'lucide-react';
+import { Layers, Terminal, ShieldCheck, Server, Unlock, Zap, Check, RefreshCw, KeyRound } from 'lucide-react';
 
 export interface PillarItem {
   id: string;
@@ -11,6 +11,20 @@ export interface PillarItem {
 }
 
 const DEFAULT_PILLARS: PillarItem[] = [
+  {
+    id: 'oauth-trio',
+    label: 'Google, GitHub & Discord',
+    badge: 'OAuth 2.0 Trio',
+    icon: KeyRound,
+    description: 'First-class social SSO for Google, GitHub, and Discord with PKCE and unified account merging.',
+  },
+  {
+    id: 'dual-token',
+    label: 'Dual Token Mode',
+    badge: 'Refresh Rotation',
+    icon: RefreshCw,
+    description: 'Short-lived JWT access tokens paired with database-backed refresh tokens and automated silent rotation.',
+  },
   {
     id: 'modular',
     label: 'Modular Architecture',

@@ -27,8 +27,8 @@ import { Magnet } from './Magnet';
 import { DecryptedText } from './DecryptedText';
 
 export const FeatureBentoHub: React.FC<{ onNavigateDocs?: () => void }> = ({ onNavigateDocs }) => {
-  // Widget 1: Multi-strategy interactive preview
-  const [activeStrategy, setActiveStrategy] = useState<'password' | 'otp' | 'google' | 'github'>('password');
+  // Widget 1: Multi-strategy interactive preview (Google, GitHub, Discord, Passwords, OTP)
+  const [activeStrategy, setActiveStrategy] = useState<'password' | 'otp' | 'google' | 'github' | 'discord'>('password');
 
   // Widget 2: Stateful Session Revocation live toggle
   const [sessions, setSessions] = useState([
@@ -69,11 +69,25 @@ export const FeatureBentoHub: React.FC<{ onNavigateDocs?: () => void }> = ({ onN
     setOtpSent(true);
   };
 
+  // Widget 5: Dual Token Mode interactive rotator
+  const [tokenRotationCount, setTokenRotationCount] = useState(1);
+  const [rotatedAt, setRotatedAt] = useState<string>('Just initialized');
+  const [isRotating, setIsRotating] = useState(false);
+
+  const handleRotateTokens = () => {
+    setIsRotating(true);
+    setTimeout(() => {
+      setTokenRotationCount((c) => c + 1);
+      setRotatedAt(new Date().toLocaleTimeString());
+      setIsRotating(false);
+    }, 250);
+  };
+
   return (
     <div className="w-full space-y-6">
       {/* Dynamic Bento Layout */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-        {/* CARD 1: Unified Multi-Strategy Auth (Col Span 7) */}
+        {/* CARD 1: Unified Multi-Strategy Auth with Google, GitHub & Discord (Col Span 7) */}
         <div className="md:col-span-7 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6 sm:p-7 relative overflow-hidden shadow-xl flex flex-col justify-between group">
           <BorderBeam size={220} duration={14} colorFrom="#6366f1" colorTo="#a855f7" />
 
@@ -91,12 +105,12 @@ export const FeatureBentoHub: React.FC<{ onNavigateDocs?: () => void }> = ({ onN
                 </div>
               </div>
               <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold text-indigo-300 bg-indigo-950/60 border border-indigo-800/60">
-                4-in-1 Engine
+                5-in-1 Engine
               </span>
             </div>
 
             <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
-              Consolidate password hashing, time-limited 6-digit email OTPs, Google OpenID Connect, and GitHub OAuth 2.0 within a single Python engine and unified relational schema.
+              Consolidate password hashing, time-limited 6-digit email OTPs, Google OpenID Connect, GitHub OAuth 2.0, and Discord Social SSO within a single Python engine and unified relational schema.
             </p>
 
             {/* Interactive Strategy Selector */}
@@ -104,14 +118,15 @@ export const FeatureBentoHub: React.FC<{ onNavigateDocs?: () => void }> = ({ onN
               <div className="flex flex-wrap gap-2">
                 {[
                   { id: 'password', label: 'Bcrypt Passwords' },
-                  { id: 'otp', label: 'Email OTP (Passwordless)' },
-                  { id: 'google', label: 'Google OAuth 2.0' },
+                  { id: 'otp', label: 'Email OTP' },
+                  { id: 'google', label: 'Google OAuth' },
                   { id: 'github', label: 'GitHub SSO' },
+                  { id: 'discord', label: 'Discord OAuth' },
                 ].map((strat) => (
                   <button
                     key={strat.id}
                     onClick={() => setActiveStrategy(strat.id as any)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
                       activeStrategy === strat.id
                         ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                         : 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200 border border-zinc-700/50'
@@ -139,13 +154,19 @@ export const FeatureBentoHub: React.FC<{ onNavigateDocs?: () => void }> = ({ onN
                 {activeStrategy === 'google' && (
                   <div className="flex items-center justify-between text-zinc-300 bg-zinc-950 p-2.5 rounded-lg border border-zinc-800">
                     <span>Protocol: <span className="text-amber-400 font-bold">OpenID Connect + PKCE</span></span>
-                    <span className="text-purple-400">/oauth/google</span>
+                    <span className="text-purple-400">/google/login</span>
                   </div>
                 )}
                 {activeStrategy === 'github' && (
                   <div className="flex items-center justify-between text-zinc-300 bg-zinc-950 p-2.5 rounded-lg border border-zinc-800">
                     <span>Protocol: <span className="text-sky-400 font-bold">OAuth 2.0 Bearer Flow</span></span>
-                    <span className="text-sky-400">/oauth/github</span>
+                    <span className="text-sky-400">/github/login</span>
+                  </div>
+                )}
+                {activeStrategy === 'discord' && (
+                  <div className="flex items-center justify-between text-zinc-300 bg-zinc-950 p-2.5 rounded-lg border border-zinc-800">
+                    <span>Protocol: <span className="text-indigo-400 font-bold">OAuth 2.0 + Community SSO</span></span>
+                    <span className="text-indigo-400">/discord/login</span>
                   </div>
                 )}
               </div>
@@ -153,7 +174,7 @@ export const FeatureBentoHub: React.FC<{ onNavigateDocs?: () => void }> = ({ onN
           </div>
 
           <div className="pt-4 mt-2 flex items-center justify-between border-t border-zinc-800/80 text-xs font-mono text-zinc-500">
-            <span>Unified User ID linkage</span>
+            <span>Google, GitHub & Discord OAuth Links</span>
             <span className="text-indigo-400 font-bold flex items-center gap-1">Zero schema collisions <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /></span>
           </div>
         </div>
@@ -359,6 +380,95 @@ export const FeatureBentoHub: React.FC<{ onNavigateDocs?: () => void }> = ({ onN
           <div className="pt-3 mt-3 border-t border-zinc-800/80 text-[11px] font-mono text-zinc-500 flex justify-between">
             <span>Rate limit</span>
             <span className="text-sky-400 font-bold">5 attempts / 300s</span>
+          </div>
+        </div>
+
+        {/* CARD 6: Dual Token Mode & Sliding Refresh Rotation (Col Span 12) */}
+        <div className="md:col-span-12 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6 sm:p-7 relative overflow-hidden shadow-xl group">
+          <BorderBeam size={240} duration={14} colorFrom="#10b981" colorTo="#06b6d4" />
+
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="space-y-3 max-w-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-950/70 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shadow-md">
+                  <RefreshCw className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                      Dual Token Mode & Refresh Rotation
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">
+                      RFC 6749 Compliant
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400 font-mono">15m Access Token + 30d Database Refresh Handshake</p>
+                </div>
+              </div>
+
+              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
+                Mitigate token replay vulnerabilities with dual tokens: fast, short-lived JWT access tokens for API authorization headers paired with database-backed, single-use rotating refresh tokens that silently renew user credentials.
+              </p>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1 text-xs font-mono text-zinc-400">
+                <span className="inline-flex items-center gap-1.5 bg-zinc-900 px-2.5 py-1 rounded-lg border border-zinc-800 text-zinc-300">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  Auto 401 Interceptor Retry
+                </span>
+                <span className="inline-flex items-center gap-1.5 bg-zinc-900 px-2.5 py-1 rounded-lg border border-zinc-800 text-zinc-300">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  Immediate Session Killswitch
+                </span>
+                <span className="inline-flex items-center gap-1.5 bg-zinc-900 px-2.5 py-1 rounded-lg border border-zinc-800 text-zinc-300">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  Multi-device Parallel Queuing
+                </span>
+              </div>
+            </div>
+
+            {/* Interactive Token Simulation Box */}
+            <div className="w-full lg:w-96 rounded-xl bg-zinc-900/90 border border-zinc-800 p-4 space-y-3 font-mono text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-zinc-400 uppercase tracking-wider font-bold">
+                  Live Token Handshake
+                </span>
+                <button
+                  onClick={handleRotateTokens}
+                  disabled={isRotating}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isRotating ? 'animate-spin' : ''}`} />
+                  <span>Rotate Now</span>
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <div className="p-2 rounded-lg bg-zinc-950 border border-zinc-800/80 space-y-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-zinc-500">Access Token (JWT):</span>
+                    <span className="text-indigo-400 font-bold">15m TTL</span>
+                  </div>
+                  <div className="text-[10px] text-zinc-300 truncate">
+                    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhaWQiOjEsInNpZCI6NjB9...{tokenRotationCount}
+                  </div>
+                </div>
+
+                <div className="p-2 rounded-lg bg-zinc-950 border border-zinc-800/80 space-y-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-zinc-500">Refresh Token (Rotated):</span>
+                    <span className="text-emerald-400 font-bold">Cycle #{tokenRotationCount}</span>
+                  </div>
+                  <div className="text-[10px] text-zinc-300 truncate">
+                    tc_ref_98a7c2e_{tokenRotationCount * 314159}_active
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-zinc-800 flex items-center justify-between text-[11px] text-zinc-400">
+                <span>Handshake latency:</span>
+                <span className="text-emerald-400 font-bold">&lt; 12ms (Silent)</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

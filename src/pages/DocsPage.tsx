@@ -11,6 +11,7 @@ import {
   Database,
   ExternalLink,
   FileCode2,
+  FileText,
   Filter,
   Info,
   Layers,
@@ -20,6 +21,7 @@ import {
   Terminal,
   Zap,
 } from 'lucide-react';
+import Markdown from 'react-markdown';
 import { motion } from 'motion/react';
 import { DocItem, MethodSpec, LIBRARY_DOCS, API_DOCS } from '../data/docsData';
 import { Badge } from '../components/common/Badge';
@@ -193,7 +195,7 @@ export const DocsPage: React.FC<DocsPageProps> = ({ section = 'lib', docId = 'se
               <Terminal className="w-3.5 h-3.5" />
               <span>REST API</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 font-mono">
-                Soon
+                {API_DOCS.length}
               </span>
             </button>
           </div>
@@ -263,6 +265,85 @@ export const DocsPage: React.FC<DocsPageProps> = ({ section = 'lib', docId = 'se
                 {activeDoc.overview && (
                   <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-900/60 border border-slate-200/80 dark:border-zinc-800/80 text-xs text-slate-700 dark:text-zinc-300 leading-relaxed font-sans">
                     {activeDoc.overview}
+                  </div>
+                )}
+
+                {/* Detailed Technical Guide / Markdown Walkthrough */}
+                {activeDoc.content && (
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between px-1">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-indigo-500" />
+                        Detailed Guide & Architecture Walkthrough
+                      </h3>
+                      <button
+                        onClick={() => handleCopy(activeDoc.content!, 'Guide content copied')}
+                        className="px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-lg border border-slate-200 dark:border-zinc-800 transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {copiedText === activeDoc.content ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                            <span className="text-emerald-500 font-bold">Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy Full Guide</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 shadow-2xs">
+                      <div className="markdown-body text-xs text-slate-700 dark:text-zinc-300 leading-relaxed">
+                        <Markdown
+                          components={{
+                            table: ({ ...props }) => (
+                              <div className="overflow-x-auto my-4 rounded-xl border border-slate-200 dark:border-zinc-800">
+                                <table className="w-full text-left text-xs font-sans border-collapse" {...props} />
+                              </div>
+                            ),
+                            thead: ({ ...props }) => (
+                              <thead className="bg-slate-100 dark:bg-zinc-900 text-slate-900 dark:text-white font-semibold border-b border-slate-200 dark:border-zinc-800" {...props} />
+                            ),
+                            th: ({ ...props }) => (
+                              <th className="px-4 py-3 text-slate-900 dark:text-white font-bold" {...props} />
+                            ),
+                            td: ({ ...props }) => (
+                              <td className="px-4 py-3 border-t border-slate-200 dark:border-zinc-800/60" {...props} />
+                            ),
+                            pre: ({ ...props }) => (
+                              <div className="my-4">
+                                <pre className="rounded-xl bg-zinc-950 p-4 text-[11px] font-mono text-indigo-200 overflow-x-auto border border-zinc-800 leading-relaxed whitespace-pre" {...props} />
+                              </div>
+                            ),
+                            code: ({ className, children, ...props }) => {
+                              const isInline = !className && typeof children === 'string' && !children.includes('\n');
+                              if (isInline) {
+                                return (
+                                  <code className="px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-mono text-[11px] font-semibold" {...props}>
+                                    {children}
+                                  </code>
+                                );
+                              }
+                              return <code className={className} {...props}>{children}</code>;
+                            },
+                            h1: ({ ...props }) => <h1 className="text-xl font-black text-slate-900 dark:text-white mt-6 mb-3 tracking-tight" {...props} />,
+                            h2: ({ ...props }) => <h2 className="text-base font-bold text-slate-900 dark:text-white mt-5 mb-2.5 pb-2 border-b border-slate-100 dark:border-zinc-800" {...props} />,
+                            h3: ({ ...props }) => <h3 className="text-sm font-bold text-slate-900 dark:text-white mt-4 mb-2" {...props} />,
+                            ul: ({ ...props }) => <ul className="list-disc pl-5 space-y-1.5 my-3" {...props} />,
+                            ol: ({ ...props }) => <ol className="list-decimal pl-5 space-y-1.5 my-3" {...props} />,
+                            li: ({ ...props }) => <li className="leading-relaxed" {...props} />,
+                            hr: ({ ...props }) => <hr className="my-6 border-slate-200 dark:border-zinc-800" {...props} />,
+                            blockquote: ({ ...props }) => (
+                              <blockquote className="border-l-4 border-indigo-500 pl-4 py-1 italic bg-indigo-50/50 dark:bg-indigo-950/20 rounded-r-lg my-3" {...props} />
+                            ),
+                          }}
+                        >
+                          {activeDoc.content}
+                        </Markdown>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

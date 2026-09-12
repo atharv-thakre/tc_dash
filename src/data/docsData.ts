@@ -1083,6 +1083,93 @@ async def github_callback(request: Request):
     )`
   },
   {
+    id: 'discord-oauth',
+    title: 'Discord OAuth Integration',
+    module: 'auth.discord',
+    description: 'FastAPI async handlers for Discord OAuth 2.0 flow with identify/email scopes, CDN avatar URL resolution, and automated account linking.',
+    overview: `The \`auth.discord\` module implements Discord OAuth2 authentication for FastAPI applications. It requests \`identify\` and \`email\` scopes, exchanges the code for access credentials at \`https://discord.com/api/oauth2/token\`, retrieves user profile data from \`https://discord.com/api/users/@me\`, resolves CDN avatar URLs (\`https://cdn.discordapp.com/avatars/{user_id}/{avatar_hash}.png\`), links or creates local user accounts, and returns standard Single or Dual tokens to the frontend callback.`,
+    content: `Discord OAuth flow handles state validation for CSRF mitigation, automatic association with existing accounts sharing the verified email, and seamless redirection back to the frontend with access tokens and refresh tokens.`,
+    schemas: [
+      {
+        title: 'Discord Profile Normalization Schema',
+        description: 'Normalized user dictionary created by auth.discord.callback',
+        json: `{
+  "provider": "discord",
+  "provider_user_id": "80351110224678912",
+  "email": "gamer@example.com",
+  "name": "Nighthawk",
+  "avatar_url": "https://cdn.discordapp.com/avatars/80351110224678912/8342729096324a05a79303b806b65ee0.png",
+  "verified": true
+}`
+      }
+    ],
+    methods: [
+      {
+        name: 'config',
+        signature: 'config(client_id: str, client_secret: str, redirect_uri: str) -> dict',
+        description: 'Configures Discord OAuth 2.0 application credentials.',
+        parameters: [
+          { name: 'client_id', type: 'str', required: true, description: 'Discord Application Client ID (Snowflake string).' },
+          { name: 'client_secret', type: 'str', required: true, description: 'Discord Application Client Secret.' },
+          { name: 'redirect_uri', type: 'str', required: true, description: 'Authorized redirect URL registered in the Discord Developer Portal.' }
+        ],
+        returns: { type: 'dict', description: '{"success": True, "message": "Discord OAuth configured successfully"}' }
+      },
+      {
+        name: 'load',
+        signature: 'load() -> dict',
+        description: 'Returns current Discord OAuth application configuration.',
+        returns: { type: 'dict', description: '{"client_id": ..., "client_secret": ..., "redirect_uri": ...}' }
+      },
+      {
+        name: 'login',
+        signature: 'async login(request: Request, frontend_url: str) -> RedirectResponse',
+        isAsync: true,
+        description: 'Initiates Discord OAuth 2.0 flow with identify and email scopes and redirects the user to discord.com/oauth2/authorize.',
+        parameters: [
+          { name: 'request', type: 'starlette.requests.Request', required: true, description: 'FastAPI request instance.' },
+          { name: 'frontend_url', type: 'str', required: true, description: 'Frontend application URL for final token redirect.' }
+        ],
+        returns: { type: 'RedirectResponse', description: 'RedirectResponse to Discord authorization consent screen.' }
+      },
+      {
+        name: 'callback',
+        signature: 'async callback(request: Request, ip_address: str = None, user_agent: str = None) -> RedirectResponse',
+        isAsync: true,
+        description: 'Handles Discord authorization code callback, resolves verified profile & CDN avatar, links or provisions account, and redirects to frontend with auth tokens.',
+        parameters: [
+          { name: 'request', type: 'starlette.requests.Request', required: true, description: 'FastAPI request instance containing code and state query params.' },
+          { name: 'ip_address', type: 'str', required: false, default: 'None', description: 'Client IP address for audit trail.' },
+          { name: 'user_agent', type: 'str', required: false, default: 'None', description: 'Client User-Agent for session record.' }
+        ],
+        returns: { type: 'RedirectResponse', description: 'RedirectResponse to frontend callback URL with access_token (and refresh_token if dual-token mode is active).' }
+      }
+    ],
+    codeSnippet: `from fastapi import FastAPI, Request
+from connect import auth
+
+app = FastAPI()
+
+# Configure Discord OAuth2
+auth.discord.config(
+    client_id="YOUR_DISCORD_CLIENT_ID",
+    client_secret="YOUR_DISCORD_CLIENT_SECRET",
+    redirect_uri="https://api.example.com/oauth/discord/callback"
+)
+
+@app.get("/oauth/discord/login")
+async def discord_login(request: Request):
+    return await auth.discord.login(request=request, frontend_url="https://app.example.com")
+
+@app.get("/oauth/discord/callback")
+async def discord_callback(request: Request):
+    return await auth.discord.callback(
+        request=request,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent")
+    )`
+  },
+  {
     id: 'deps',
     title: 'FastAPI Dependencies',
     module: 'auth.deps',
@@ -1297,12 +1384,15 @@ def protected_route(user=Depends(auth.status.block("suspended", "inactive"))):
     methods: [
       {
         name: 'config',
-        signature: 'config(secret_key: str, algorithm: str = "HS256", session_duration_days: int = 7) -> dict',
-        description: 'Configures JWT signing parameters.',
+        signature: 'config(secret_key: str, algorithm: str = "HS256", session_duration_days: int = 7, dual_token_mode: bool = True, access_token_expire_minutes: int = 15, refresh_token_expire_days: int = 30) -> dict',
+        description: 'Configures JWT signing parameters and toggles Single-Token vs Dual-Token mode.',
         parameters: [
           { name: 'secret_key', type: 'str', required: true, description: 'Secret key string.' },
-          { name: 'algorithm', type: 'str', required: false, default: '"HS256"', description: 'HMAC algorithm.' },
-          { name: 'session_duration_days', type: 'int', required: false, default: '7', description: 'Token expiration duration in days.' }
+          { name: 'algorithm', type: 'str', required: false, default: '"HS256"', description: 'HMAC algorithm (HS256, HS384, HS512).' },
+          { name: 'session_duration_days', type: 'int', required: false, default: '7', description: 'Token expiration duration in days (for single token mode).' },
+          { name: 'dual_token_mode', type: 'bool', required: false, default: 'True', description: 'Enables short-lived access tokens with rotating refresh tokens.' },
+          { name: 'access_token_expire_minutes', type: 'int', required: false, default: '15', description: 'Access token expiration in minutes (dual token mode).' },
+          { name: 'refresh_token_expire_days', type: 'int', required: false, default: '30', description: 'Refresh token lifetime in days (dual token mode).' }
         ],
         returns: { type: 'dict', description: '{"success": True, "message": "JWT configured successfully"}' }
       },
@@ -1310,7 +1400,7 @@ def protected_route(user=Depends(auth.status.block("suspended", "inactive"))):
         name: 'load',
         signature: 'load() -> dict',
         description: 'Returns current JWT configuration.',
-        returns: { type: 'dict', description: '{"secret_key": ..., "algorithm": ..., "session_duration_days": ...}' }
+        returns: { type: 'dict', description: '{"secret_key": ..., "algorithm": ..., "session_duration_days": ..., "dual_token_mode": ...}' }
       },
       {
         name: 'create_access_token',
@@ -1330,18 +1420,875 @@ def protected_route(user=Depends(auth.status.block("suspended", "inactive"))):
         ],
         returns: { type: 'dict', description: 'Decoded payload dictionary.' },
         exceptions: ['InvalidTokenError: Signature verification failed or token is expired.']
+      },
+      {
+        name: 'rotate_refresh_token',
+        signature: 'rotate_refresh_token(refresh_token: str) -> dict',
+        description: 'Validates and invalidates single-use refresh token, issuing a new access token and rotated refresh token.',
+        parameters: [
+          { name: 'refresh_token', type: 'str', required: true, description: 'Single-use refresh token string.' }
+        ],
+        returns: { type: 'dict', description: '{"access_token": "...", "refresh_token": "...", "token_type": "Bearer"}' },
+        exceptions: ['InvalidTokenError: Expired, invalid, or replayed refresh token.']
+      },
+      {
+        name: 'verify_refresh_token',
+        signature: 'verify_refresh_token(refresh_token: str) -> dict',
+        description: 'Verifies refresh token active status and retrieves associated session metadata without revoking it.',
+        parameters: [
+          { name: 'refresh_token', type: 'str', required: true, description: 'Refresh token string.' }
+        ],
+        returns: { type: 'dict', description: 'Refresh token session information.' }
       }
     ],
     codeSnippet: `from connect import auth
 
-# Configure JWT
-auth.jwt.config(secret_key="supersecretkey", algorithm="HS256", session_duration_days=7)
+# Configure JWT with Dual-Token Mode
+auth.jwt.config(
+    secret_key="supersecretkey",
+    algorithm="HS256",
+    session_duration_days=7,
+    dual_token_mode=True,
+    access_token_expire_minutes=15,
+    refresh_token_expire_days=30
+)
 
-# Create Token
+# Create Access Token
 token = auth.jwt.create_access_token(data={"aid": 1, "sid": 60})
 
 # Verify Token
-payload = auth.jwt.verify_token(token=token)`
+payload = auth.jwt.verify_token(token=token)
+
+# Rotate Refresh Token on Renewal
+fresh_tokens = auth.jwt.rotate_refresh_token(refresh_token="tc_jwt_ref_example")`
+  },
+  {
+    id: 'token-architecture',
+    title: 'Single vs Dual Token Modes & Token Rotation',
+    module: 'auth.jwt (Token Architecture)',
+    description: 'Deep-dive architectural guide comparing Single-Token and Dual-Token modes, token rotation mechanics, reuse detection, and Axios retry queues.',
+    overview: `tc_auth natively supports two distinct token lifecycle architectures:
+
+1. Single-Token Mode:
+   A lightweight session architecture using a single long-lived JWT access token (e.g. 7 days). Eliminates database lookups for token renewal and reduces network overhead. Ideal for simple SPAs, microservices, and internal tools where stateless tokens are preferred.
+
+2. Dual-Token Mode (Recommended for Production Web & Mobile):
+   Combines short-lived access tokens (e.g. 15 minutes) with rotating, database-backed refresh tokens (e.g. 30 days). When the access token expires, the client's HTTP interceptor silently exchanges the refresh token for a fresh access token and a newly rotated refresh token without interrupting the user session.`,
+    content: `Token Rotation & Reuse Attack Mitigation:
+- Each refresh token is strictly single-use.
+- Upon successful exchange at POST /token/refresh, the presented refresh token is immediately invalidated in the database, and a brand-new cryptographically random refresh token is issued.
+- If a previously invalidated refresh token is ever presented again (replay attack or compromised credential), tc_auth immediately revokes all active sessions and refresh tokens associated with that user account to prevent unauthorized access.
+- In the frontend client (apiClient.ts), an Axios interceptor maintains a request queue during active refresh calls to prevent multiple concurrent refresh requests from colliding (thundering herd protection).`,
+    schemas: [
+      {
+        title: 'Single-Token Mode Auth Response Schema',
+        description: 'Returned by login/signup endpoints when dual_token_mode is False',
+        json: `{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhaWQiOjEsInNpZCI6NjAsImV4cCI6MTc4NzEyOTg2N30...",
+  "token_type": "Bearer",
+  "account": {
+    "id": 1,
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "role": "user"
+  }
+}`
+      },
+      {
+        title: 'Dual-Token Mode Auth Response Schema',
+        description: 'Returned by login/signup endpoints when dual_token_mode is True',
+        json: `{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhaWQiOjEsInNpZCI6NjAsImV4cCI6MTc4NzEyOTg2N30...",
+  "refresh_token": "tc_jwt_ref_9a8b7c6d5e4f3a2b1c0d",
+  "token_type": "Bearer",
+  "account": {
+    "id": 1,
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "role": "user"
+  }
+}`
+      },
+      {
+        title: 'Token Refresh Endpoint Response Schema (POST /token/refresh)',
+        description: 'Response payload after rotating the refresh token',
+        json: `{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhaWQiOjEsInNpZCI6NjEsImV4cCI6MTc4NzEzMDc2N30...",
+  "refresh_token": "tc_jwt_ref_fresh_new_random_token_string",
+  "token_type": "Bearer"
+}`
+      }
+    ],
+    methods: [
+      {
+        name: 'config',
+        signature: 'config(secret_key: str, algorithm: str = "HS256", session_duration_days: int = 7, dual_token_mode: bool = True, access_token_expire_minutes: int = 15, refresh_token_expire_days: int = 30) -> dict',
+        description: 'Configures JWT parameters and toggles between Single-Token and Dual-Token modes.',
+        parameters: [
+          { name: 'secret_key', type: 'str', required: true, description: 'HMAC secret key used for signing and verifying tokens.' },
+          { name: 'algorithm', type: 'str', required: false, default: '"HS256"', description: 'Cryptographic algorithm (HS256, HS384, HS512).' },
+          { name: 'session_duration_days', type: 'int', required: false, default: '7', description: 'Expiration duration for single-token access JWTs (days).' },
+          { name: 'dual_token_mode', type: 'bool', required: false, default: 'True', description: 'If True, enables short-lived access tokens + rotating refresh tokens. If False, operates in single-token mode.' },
+          { name: 'access_token_expire_minutes', type: 'int', required: false, default: '15', description: 'Short-lived access token expiration duration (minutes).' },
+          { name: 'refresh_token_expire_days', type: 'int', required: false, default: '30', description: 'Database-backed refresh token expiration duration (days).' }
+        ],
+        returns: { type: 'dict', description: '{"success": True, "message": "JWT and token mode configured successfully"}' }
+      },
+      {
+        name: 'rotate_refresh_token',
+        signature: 'rotate_refresh_token(refresh_token: str) -> dict',
+        description: 'Verifies the supplied refresh token, revokes it in the database, generates a fresh access token and rotated refresh token.',
+        parameters: [
+          { name: 'refresh_token', type: 'str', required: true, description: 'Active single-use refresh token.' }
+        ],
+        returns: { type: 'dict', description: '{"access_token": "...", "refresh_token": "...", "token_type": "Bearer"}' },
+        exceptions: [
+          'InvalidTokenError: Refresh token is invalid or expired.',
+          'TokenReuseError: Refresh token was already used; account sessions revoked for security.'
+        ]
+      },
+      {
+        name: 'verify_refresh_token',
+        signature: 'verify_refresh_token(refresh_token: str) -> dict',
+        description: 'Validates refresh token existence and status in database without consuming/rotating it.',
+        parameters: [
+          { name: 'refresh_token', type: 'str', required: true, description: 'Refresh token string to inspect.' }
+        ],
+        returns: { type: 'dict', description: 'Refresh token record with account_id and expiry.' }
+      }
+    ],
+    codeSnippet: `from fastapi import FastAPI, HTTPException, Depends
+from connect import auth
+from pydantic import BaseModel
+
+app = FastAPI()
+
+# 1. Configure Dual-Token Mode (Short-lived access + rotating refresh)
+auth.jwt.config(
+    secret_key="production_super_secret_key",
+    algorithm="HS256",
+    dual_token_mode=True,
+    access_token_expire_minutes=15,
+    refresh_token_expire_days=30
+)
+
+# 2. Refresh Endpoint for Client Token Rotation
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+@app.post("/token/refresh")
+async def refresh_tokens(payload: RefreshRequest):
+    try:
+        tokens = auth.jwt.rotate_refresh_token(refresh_token=payload.refresh_token)
+        return tokens
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=str(e))`
+  },
+  {
+    id: 'frontend-token-guide',
+    title: 'Frontend Token Guide: Single & Dual Modes',
+    module: 'Frontend Integration (Axios & Fetch)',
+    description: 'Comprehensive, production-ready integration pattern for frontend applications (React, Next.js, Vue, Axios, Fetch) to seamlessly handle both Single-Token Mode and Dual-Token Mode with tc_auth.',
+    overview: `tc_auth supports two distinct authentication token paradigms: Single-Token Mode (default 7-day access token with zero refresh overhead) and Dual-Token Mode (15-minute short-lived access token paired with rotating 7-to-30 day refresh tokens).
+
+A robust frontend application should be adaptive — automatically utilizing refresh tokens when provided by the backend, while gracefully falling back to standard single-token behavior when refresh tokens are absent.`,
+    content: `# Frontend Token Usage Guide: Single-Token & Dual-Token Modes
+
+This guide provides a comprehensive, production-ready integration pattern for frontend applications (React, Next.js, Vue, Vanilla JS, Axios, Fetch) to seamlessly handle **both Single-Token Mode and Dual-Token Mode** with \`tc_auth\`.
+
+---
+
+## 1. Overview: Single-Token vs. Dual-Token Mode
+
+| Feature | Single-Token Mode (Default) | Dual-Token Mode (Enabled via \`dual_token_mode=True\`) |
+| :--- | :--- | :--- |
+| **Access Token** | Long-lived (default 7 days) | Short-lived (default 15 minutes) |
+| **Refresh Token** | *None* | Long-lived (default 7 days) |
+| **Protected Requests** | \`Authorization: Bearer <access_token>\` | \`Authorization: Bearer <access_token>\` |
+| **Token Expiry Behavior** | Redirect to \`/login\` when token expires (HTTP 401) | Auto-refresh access token via \`POST /tc-auth/token/refresh\` without logging user out |
+| **OAuth Callback URL** | \`?access_token=...\` | \`?access_token=...&refresh_token=...\` |
+| **Login/Signup Response** | \`{ "access_token": "...", "account": {...} }\` | \`{ "access_token": "...", "refresh_token": "...", "account": {...} }\` |
+
+---
+
+## 2. Universal Frontend Strategy
+
+A robust frontend application should be **adaptive** — automatically utilizing refresh tokens when provided by the backend, while gracefully falling back to standard single-token behavior when refresh tokens are absent.
+
+\`\`\`
+                  ┌─────────────────────────────────┐
+                  │ User Logs In / OAuth Callback   │
+                  └────────────────┬────────────────┘
+                                   │
+                                   ▼
+                   Does response have \`refresh_token\`?
+                                   │
+                   ┌───────────────┴───────────────┐
+                   ▼ YES                           ▼ NO
+        ┌──────────────────────┐        ┌──────────────────────┐
+        │ Dual-Token Active    │        │ Single-Token Active  │
+        │ - Store access_token │        │ - Store access_token │
+        │ - Store refresh_token│        │ - No refresh needed  │
+        └──────────┬───────────┘        └──────────┬───────────┘
+                   │                               │
+                   ▼                               ▼
+        ┌──────────────────────────────────────────────────────┐
+        │ Outgoing API Requests: \`Authorization: Bearer token\` │
+        └──────────────────────────┬───────────────────────────┘
+                                   │
+                                   ▼
+                       API Returns HTTP 401?
+                                   │
+                   ┌───────────────┴───────────────┐
+                   ▼ YES                           ▼ NO
+          Is \`refresh_token\` available?         Request Succeeded (200 OK)
+                   │
+         ┌─────────┴─────────┐
+         ▼ YES               ▼ NO
+  ┌───────────────┐   ┌──────────────────────┐
+  │ Call /refresh │   │ Clear tokens         │
+  │ Replay Request│   │ Redirect to \`/login\` │
+  └───────────────┘   └──────────────────────┘
+\`\`\`
+
+---
+
+## 3. Universal Axios Implementation (Recommended)
+
+This client handles:
+1. Automatic token attachment on all outgoing requests.
+2. Intercepting \`401 Unauthorized\` errors.
+3. **Queue / Mutex Lock**: If multiple API requests fail with 401 at the same time, only **one** refresh request is sent; all other pending requests wait and replay automatically once the new token arrives.
+4. Automatic fallback if in Single-Token Mode or if the refresh token expires.
+
+\`\`\`typescript
+// src/api/client.ts
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.example.com/tc-auth";
+
+// Token storage helpers
+export const tokenStorage = {
+  getAccessToken: () => localStorage.getItem("access_token"),
+  getRefreshToken: () => localStorage.getItem("refresh_token"),
+  setTokens: (accessToken: string, refreshToken?: string | null) => {
+    localStorage.setItem("access_token", accessToken);
+    if (refreshToken) {
+      localStorage.setItem("refresh_token", refreshToken);
+    }
+  },
+  clearTokens: () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+  },
+  hasRefreshToken: () => Boolean(localStorage.getItem("refresh_token")),
+};
+
+// Create Axios instance
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// 1. Request Interceptor: Attach Access Token
+apiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = tokenStorage.getAccessToken();
+    if (token && config.headers) {
+      config.headers.Authorization = \`Bearer \${token}\`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// 2. Response Interceptor: Handle 401 & Concurrent Token Refresh
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+}> = [];
+
+const processQueue = (error: AxiosError | null, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+    // Check if error is 401 and request hasn't been retried yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      const refreshToken = tokenStorage.getRefreshToken();
+
+      // Case A: Single-Token Mode (No refresh token exists) OR Refresh Endpoint itself failed
+      if (!refreshToken || originalRequest.url?.includes("/token/refresh")) {
+        tokenStorage.clearTokens();
+        if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+          window.location.href = "/login?expired=true";
+        }
+        return Promise.reject(error);
+      }
+
+      // Case B: Dual-Token Mode (Refresh token exists)
+      if (isRefreshing) {
+        // Queue concurrent requests while token is refreshing
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = \`Bearer \${token}\`;
+            }
+            return apiClient(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        // Call token refresh endpoint
+        const response = await axios.post(\`\${API_BASE_URL}/token/refresh\`, {
+          refresh_token: refreshToken,
+        });
+
+        const { access_token, refresh_token: newRefreshToken } = response.data;
+
+        // Store refreshed tokens
+        tokenStorage.setTokens(access_token, newRefreshToken);
+
+        // Update default header and original request header
+        apiClient.defaults.headers.common["Authorization"] = \`Bearer \${access_token}\`;
+        if (originalRequest.headers) {
+          originalRequest.headers.Authorization = \`Bearer \${access_token}\`;
+        }
+
+        processQueue(null, access_token);
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError as AxiosError, null);
+        tokenStorage.clearTokens();
+        if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+          window.location.href = "/login?expired=true";
+        }
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+\`\`\`
+
+---
+
+## 4. Universal Native Fetch Implementation
+
+If you prefer lightweight \`fetch\` without third-party dependencies:
+
+\`\`\`typescript
+// src/api/fetchClient.ts
+const API_BASE_URL = "https://api.example.com/tc-auth";
+
+interface RequestOptions extends RequestInit {
+  _retry?: boolean;
+}
+
+export async function customFetch(endpoint: string, options: RequestOptions = {}): Promise<Response> {
+  let accessToken = localStorage.getItem("access_token");
+  const refreshToken = localStorage.getItem("refresh_token");
+
+  const headers = new Headers(options.headers || {});
+  headers.set("Content-Type", "application/json");
+  if (accessToken) {
+    headers.set("Authorization", \`Bearer \${accessToken}\`);
+  }
+
+  let response = await fetch(\`\${API_BASE_URL}\${endpoint}\`, {
+    ...options,
+    headers,
+  });
+
+  // Handle 401 Unauthorized
+  if (response.status === 401 && !options._retry) {
+    // If dual-token mode is active and we have a refresh token:
+    if (refreshToken && !endpoint.includes("/token/refresh")) {
+      options._retry = true;
+
+      try {
+        const refreshRes = await fetch(\`\${API_BASE_URL}/token/refresh\`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+
+        if (refreshRes.ok) {
+          const data = await refreshRes.json();
+          localStorage.setItem("access_token", data.access_token);
+          if (data.refresh_token) {
+            localStorage.setItem("refresh_token", data.refresh_token);
+          }
+
+          // Retry original request with newly issued token
+          headers.set("Authorization", \`Bearer \${data.access_token}\`);
+          return fetch(\`\${API_BASE_URL}\${endpoint}\`, {
+            ...options,
+            headers,
+          });
+        }
+      } catch (e) {
+        console.error("Token refresh failed:", e);
+      }
+    }
+
+    // Single-token mode OR refresh failed -> clear & redirect
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+      window.location.href = "/login";
+    }
+  }
+
+  return response;
+}
+\`\`\`
+
+---
+
+## 5. Handling Logins & Signups
+
+Store tokens dynamically regardless of single or dual-token mode:
+
+\`\`\`typescript
+// Handle Password Login, OTP Login, or Signup
+async function handleLoginResponse(responsePayload: {
+  access_token: string;
+  refresh_token?: string;
+  account: any;
+}) {
+  // 1. Always store access_token
+  localStorage.setItem("access_token", responsePayload.access_token);
+
+  // 2. If dual-token mode is active, store refresh_token; otherwise clear any old refresh_token
+  if (responsePayload.refresh_token) {
+    localStorage.setItem("refresh_token", responsePayload.refresh_token);
+  } else {
+    localStorage.removeItem("refresh_token");
+  }
+
+  // 3. Navigate to app dashboard
+  window.location.href = "/dashboard";
+}
+\`\`\`
+
+---
+
+## 6. Handling OAuth Callbacks (Google, GitHub, Discord)
+
+When the user completes OAuth login, the backend redirects the browser back to \`{frontend_url}/oauth/callback\` with query parameters.
+
+### Query Parameter Shapes:
+- **Single-Token Mode**: \`https://app.example.com/oauth/callback?access_token=eyJhbGci...\`
+- **Dual-Token Mode**: \`https://app.example.com/oauth/callback?access_token=eyJhbGci...&refresh_token=eyJhbGci...\`
+- **Account Linking**: \`https://app.example.com/oauth/callback?linked=true&provider=google\`
+
+### React Router / Next.js Callback Router:
+
+\`\`\`tsx
+// src/pages/OAuthCallback.tsx or app/oauth/callback/page.tsx
+"use client";
+
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+export default function OAuthCallbackPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const accessToken = searchParams.get("access_token");
+    const refreshToken = searchParams.get("refresh_token");
+    const linked = searchParams.get("linked");
+    const provider = searchParams.get("provider");
+    const error = searchParams.get("error");
+
+    // Case 1: Successful Login or Signup
+    if (accessToken) {
+      localStorage.setItem("access_token", accessToken);
+      
+      if (refreshToken) {
+        localStorage.setItem("refresh_token", refreshToken);
+      } else {
+        localStorage.removeItem("refresh_token");
+      }
+
+      // Clean query parameters from URL history for security
+      window.history.replaceState({}, document.title, window.location.pathname);
+      router.replace("/dashboard");
+      return;
+    }
+
+    // Case 2: Successful Secondary Account Linking
+    if (linked === "true") {
+      router.replace(\`/settings/security?linked=true&provider=\${provider}\`);
+      return;
+    }
+
+    // Case 3: Linking or Auth Error
+    if (error || linked === "false") {
+      router.replace(\`/settings/security?error=\${encodeURIComponent(error || "Linking failed")}\`);
+      return;
+    }
+
+    router.replace("/login");
+  }, [searchParams, router]);
+
+  return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+      <p>Authenticating, please wait...</p>
+    </div>
+  );
+}
+\`\`\`
+
+---
+
+## 7. Logout Strategy
+
+When logging out, destroy the server session and clear all local tokens:
+
+\`\`\`typescript
+async function logout() {
+  const accessToken = localStorage.getItem("access_token");
+
+  try {
+    if (accessToken) {
+      await fetch("https://api.example.com/tc-auth/logout", {
+        method: "POST",
+        headers: {
+          Authorization: \`Bearer \${accessToken}\`,
+        },
+      });
+    }
+  } catch (err) {
+    console.error("Logout error:", err);
+  } finally {
+    // Clear both tokens
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    window.location.href = "/login";
+  }
+}
+\`\`\`
+
+---
+
+## 8. Summary Checklist for Frontend Teams
+
+1. **Always send \`Authorization: Bearer <access_token>\`**: Never send the \`refresh_token\` in \`Authorization\` headers (doing so triggers a \`401 Unauthorized\` security rejection).
+2. **Dynamically check for \`refresh_token\`**: If present, persist it and enable auto-refresh on 401; if absent, treat as Single-Token Mode.
+3. **Queue simultaneous requests**: Use the Axios response interceptor with request queuing to prevent multiple parallel \`/token/refresh\` calls when several components fetch on mount.
+4. **Clean OAuth callback URLs**: Use \`window.history.replaceState\` or client-side navigation (\`router.replace\`) immediately after reading tokens to prevent tokens leaking in browser history or referrer headers.
+5. **Handle Refresh Token Rotation**: Whenever \`/token/refresh\` returns a new \`refresh_token\`, update \`localStorage\` with the new value.`,
+    schemas: [
+      {
+        title: 'Single-Token vs Dual-Token Response Schemas',
+        description: 'Returned by login/signup endpoints based on dual_token_mode configuration',
+        json: `// Single-Token Mode Response (dual_token_mode=False)
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "Bearer",
+  "account": {
+    "id": "acc_101",
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "role": "user"
+  }
+}
+
+// Dual-Token Mode Response (dual_token_mode=True)
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "tc_jwt_ref_9a8b7c6d5e4f3a2b1c0d",
+  "token_type": "Bearer",
+  "account": {
+    "id": "acc_101",
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "role": "user"
+  }
+}`
+      },
+      {
+        title: 'POST /token/refresh Payload & Rotated Response',
+        description: 'Exchanging refresh token for a fresh access token and rotated refresh token',
+        json: `// Request: POST /tc-auth/token/refresh
+{
+  "refresh_token": "tc_jwt_ref_9a8b7c6d5e4f3a2b1c0d"
+}
+
+// Response: 200 OK
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fresh_access_token...",
+  "refresh_token": "tc_jwt_ref_new_rotated_single_use_token_string",
+  "token_type": "Bearer"
+}`
+      }
+    ],
+    methods: [
+      {
+        name: 'tokenStorage.setTokens',
+        signature: 'setTokens(accessToken: string, refreshToken?: string | null): void',
+        description: 'Stores access_token and conditionally stores or clears refresh_token based on Single vs Dual mode.',
+        isAsync: false,
+        parameters: [
+          { name: 'accessToken', type: 'string', required: true, description: 'JWT Bearer access token string.' },
+          { name: 'refreshToken', type: 'string | null', required: false, description: 'Rotating refresh token string if present; if omitted, clears any existing refresh token.' }
+        ],
+        returns: { type: 'void', description: 'Synchronously sets localStorage values.' },
+        notes: 'Guarantees that switching between dual and single token modes never leaves orphaned refresh tokens.',
+        example: `tokenStorage.setTokens(response.access_token, response.refresh_token);`
+      },
+      {
+        name: 'apiClient.interceptors.response',
+        signature: 'apiClient.interceptors.response.use(onSuccess, onErrorWithQueue)',
+        description: 'Axios response interceptor that catches 401 errors, checks for refresh_token, queues concurrent requests, calls /token/refresh once, and replays all failed requests with the new token.',
+        isAsync: true,
+        parameters: [
+          { name: 'error', type: 'AxiosError', required: true, description: 'Intercepted HTTP error object.' }
+        ],
+        returns: { type: 'Promise<AxiosResponse>', description: 'Replayed request resolving to original expected response.' },
+        notes: 'Features a queue / mutex lock to prevent the Thundering Herd problem when multiple components mount concurrently.',
+        example: `// Concurrent requests waiting for refresh token replay automatically
+const [profile, settings, stats] = await Promise.all([
+  apiClient.get('/me'),
+  apiClient.get('/settings'),
+  apiClient.get('/stats')
+]);`
+      },
+      {
+        name: 'customFetch',
+        signature: 'customFetch(endpoint: string, options?: RequestOptions): Promise<Response>',
+        description: 'Zero-dependency native fetch wrapper supporting Bearer authorization and 401 auto-retry with token refresh.',
+        isAsync: true,
+        parameters: [
+          { name: 'endpoint', type: 'string', required: true, description: 'API relative path (e.g. /account/me).' },
+          { name: 'options', type: 'RequestOptions', required: false, description: 'Standard Fetch RequestInit options.' }
+        ],
+        returns: { type: 'Promise<Response>', description: 'Native fetch Response.' },
+        example: `const res = await customFetch('/account/me');
+const data = await res.json();`
+      }
+    ],
+    codeSnippet: `// Quick Reference: Adaptive Login Token Storing
+export async function handleLogin(credentials: { email: string; password: string }) {
+  const res = await apiClient.post('/login/password', credentials);
+  const { access_token, refresh_token, account } = res.data;
+
+  // Single or Dual Mode: tokenStorage handles both automatically
+  tokenStorage.setTokens(access_token, refresh_token);
+  return account;
+}`
+  },
+  {
+    id: 'magic-link-guide',
+    title: 'Magic Link Authentication System',
+    module: 'Authentication & OTP Extension',
+    description: 'Seamless passwordless authentication built directly on top of the battle-tested OTP infrastructure with zero redundant tables, bot-safe verification, and instant browser redirection.',
+    overview: `The Magic Link system in tc_auth provides seamless, passwordless authentication built directly on top of the core OTP infrastructure.
+
+Instead of introducing redundant database tables or conflicting token stores, Magic Links utilize the core OTP table (identifier, purpose, code_hash, expires_at, attempts) and OTPService. This provides a unified lifecycle for email codes and one-click login links.`,
+    content: `# Magic Link Authentication System
+
+The **Magic Link** system in \`tc_auth\` provides seamless, passwordless authentication built directly on top of the battle-tested email OTP infrastructure.
+
+Instead of introducing redundant database tables or conflicting token stores, Magic Links utilize the core \`OTP\` table (\`identifier\`, \`purpose\`, \`code_hash\`, \`expires_at\`, \`attempts\`) and \`OTPService\`.
+
+---
+
+## 1. UI Design & Intent Guideline: When to Use Which Route
+
+To ensure the best user experience and clear separation of intent, follow this rule when integrating frontend forms:
+
+| User Action in UI | Endpoint to Call | Rationale |
+| :--- | :--- | :--- |
+| User explicitly clicks **"Send me Magic Link"** / **"Sign In with Magic Link"** button | **\`POST /tc-auth/send/email/link/{purpose}\`** | **Use this route ONLY when the user explicitly requests a magic link.** When a user clicks a dedicated magic link button, their primary expectation is a one-click login link. This endpoint communicates explicit intent, sets descriptive subject lines (e.g., "Sign-In Link & Code"), and requires/resolves the frontend destination URL. |
+| User enters email in a standard OTP form and clicks **"Send OTP"** / **"Request Code"** | **\`POST /tc-auth/send/email/otp/{purpose}\`** | **Use this route for standard OTP / code-based flows.** When a user enters their email and expects a 6-digit code to type into an input field, call this route. It preserves the classic OTP experience while still embedding a convenient one-click link if \`frontend_url\` is detected. |
+
+---
+
+## 2. End-to-End Authentication Flows
+
+### Flow A: Dedicated Magic Link Login
+1. **Frontend Request**: User clicks **"Send me Magic Link"** tab/button. Frontend calls:
+   \`\`\`http
+   POST /tc-auth/send/email/link/login
+   Content-Type: application/json
+
+   {
+     "email": "user@example.com",
+     "frontend_url": "https://app.example.com"
+   }
+   \`\`\`
+2. **Email Delivery**: Backend generates a 6-digit OTP, stores its cryptographic hash in the \`OTP\` table, and dispatches an email featuring both the prominent one-click login button and the backup 6-digit code.
+3. **Browser Direct Click**: User opens their email and clicks the Magic Link button:
+   \`\`\`http
+   GET https://api.example.com/tc-auth/link/login?email=user%40example.com&otp=491823&frontend_url=https%3A%2F%2Fapp.example.com
+   \`\`\`
+4. **Instant Redirection**: Backend verifies the OTP hash against the database, creates a session, and issues an HTTP 307 redirect back to the frontend:
+   \`\`\`
+   https://app.example.com/oauth/callback?access_token=eyJhbGciOi...&refresh_token=tc_jwt_ref_...&verified=true
+   \`\`\`
+5. **Frontend Auto-Login**: The existing \`/oauth/callback\` page extracts \`access_token\` and \`refresh_token\`, stores them in \`localStorage\`, and navigates to the dashboard.
+
+---
+
+### Flow B: Bot-Safe Programmatic Verification (Anti-Scanner Defense)
+To prevent corporate email security scanners (e.g., Outlook SafeLinks, Proofpoint) from consuming single-use links before the user clicks them, you can configure your email templates to link directly to a frontend landing page (e.g., \`https://app.example.com/login?email=...&otp=...\`), which then performs a programmatic verification:
+
+\`\`\`typescript
+// Frontend executes a POST request on user interaction (e.g. "Confirm Login" button)
+const res = await apiClient.post("/link/login", {
+  email: emailFromQuery,
+  otp: otpFromQuery
+});
+
+const { access_token, refresh_token, account } = res.data;
+tokenStorage.setTokens(access_token, refresh_token);
+window.location.href = "/dashboard";
+\`\`\`
+
+---
+
+## 3. Frontend Integration Code Examples
+
+### Requesting a Magic Link (React / TypeScript)
+\`\`\`typescript
+import { authService } from './services/authService';
+
+async function handleRequestMagicLink(email: string) {
+  try {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    await authService.sendMagicLink(email, 'login', origin);
+    toast.success('Magic link dispatched! Check your inbox.');
+  } catch (error: any) {
+    toast.error(error.message || 'Failed to send magic link');
+  }
+}
+\`\`\`
+
+### Pre-populating and Handling Magic Link Callbacks
+\`\`\`typescript
+// Inside LoginPage or SignupPage useEffect
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const emailParam = params.get('email');
+  const otpParam = params.get('otp');
+  const verifiedParam = params.get('verified');
+
+  if (emailParam) {
+    setEmail(emailParam);
+  }
+
+  // If user opened with link containing OTP, switch to OTP tab and prefill
+  if (otpParam) {
+    setOtp(otpParam);
+    setTab('otp');
+  }
+}, []);
+\`\`\``,
+    schemas: [
+      {
+        title: 'POST /send/email/link/{purpose} Request & Response',
+        description: 'Payload schema for requesting an explicit magic authentication link',
+        json: `// Request
+POST /tc-auth/send/email/link/login
+{
+  "email": "developer@example.com",
+  "frontend_url": "https://app.example.com"
+}
+
+// Response: 200 OK
+{
+  "expires_at": 1735689600,
+  "frontend_url": "https://app.example.com"
+}`
+      },
+      {
+        title: 'POST /link/{purpose} Bot-Safe Programmatic Response',
+        description: 'Response payload returned when programmatically verifying a magic link',
+        json: `// Request: POST /tc-auth/link/login
+{
+  "email": "developer@example.com",
+  "otp": "491823"
+}
+
+// Response: 200 OK
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "tc_jwt_ref_9a8b7c6d5e4f3a2b1c0d",
+  "token_type": "Bearer",
+  "account": {
+    "id": 1,
+    "uid": "2d7b5f8e-8d8a-4cc4-9c3d-2f2c6c4d2e28",
+    "name": "Jane Doe",
+    "email": "developer@example.com",
+    "role": "user",
+    "status": "active"
+  }
+}`
+      }
+    ],
+    methods: [
+      {
+        name: 'POST /send/email/link/{purpose}',
+        signature: 'POST /send/email/link/{purpose}',
+        description: 'Dispatches a magic authentication link email with explicit subject lines, customized button URLs, and backup 6-digit codes.',
+        parameters: [
+          { name: 'purpose', type: 'path', required: true, description: '"login", "signup", "reset", or "verify".' },
+          { name: 'email', type: 'body (str)', required: true, description: 'Destination email address.' },
+          { name: 'frontend_url', type: 'body (str)', required: false, description: 'Base application URL for one-click redirect callback.' }
+        ],
+        returns: { type: 'JSON Object', description: '{"expires_at": 1735689600, "frontend_url": "..."}' }
+      },
+      {
+        name: 'GET /link/{purpose}',
+        signature: 'GET /link/{purpose}?email={EMAIL}&otp={CODE}&frontend_url={URL}',
+        description: 'Direct browser link handler. Validates the OTP code from query parameters, generates access & refresh tokens, and issues an HTTP 307 redirect to frontend callback.',
+        parameters: [
+          { name: 'purpose', type: 'path', required: true, description: 'Flow purpose.' },
+          { name: 'email', type: 'query (str)', required: true, description: 'Target email.' },
+          { name: 'otp', type: 'query (str)', required: true, description: '6-digit verification code.' },
+          { name: 'frontend_url', type: 'query (str)', required: false, description: 'Frontend redirect origin.' }
+        ],
+        returns: { type: 'HTTP 307', description: 'Redirects to ${frontend_url}/oauth/callback with tokens.' }
+      },
+      {
+        name: 'POST /link/{purpose}',
+        signature: 'POST /link/{purpose}',
+        description: 'Bot-safe programmatic verification route. Accepts email and OTP code in JSON body and returns JWT access & refresh tokens.',
+        parameters: [
+          { name: 'purpose', type: 'path', required: true, description: 'Flow purpose.' },
+          { name: 'email', type: 'body (str)', required: true, description: 'Account email address.' },
+          { name: 'otp', type: 'body (str)', required: true, description: '6-digit verification code.' }
+        ],
+        returns: { type: 'JSON Object', description: 'Login token response with access_token and account.' }
+      }
+    ]
   },
   {
     id: 'dashboard',
@@ -1393,10 +2340,32 @@ export const API_DOCS: DocItem[] = [
 - 404 Not Found: Account with provided email or handle does not exist.`,
     schemas: [
       {
-        title: 'Standard Login / Authentication Response Schema',
-        description: 'Dictionary payload returned by signup/otp, signup/password, login/otp, login/password, and forgot/password',
+        title: 'Single-Token Mode Login Response Schema',
+        description: 'Dictionary payload returned by auth endpoints when dual_token_mode is False (standard 7-day access token)',
         json: `{
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhaWQiOjEsInNpZCI6NjAsImV4cCI6MTc4NzEyOTg2N30...",
+  "token_type": "Bearer",
+  "account": {
+    "id": 1,
+    "uid": "2d7b5f8e-8d8a-4cc4-9c3d-2f2c6c4d2e28",
+    "name": "Jane Doe",
+    "handle": "jane",
+    "email": "jane@example.com",
+    "phone": null,
+    "avatar_url": null,
+    "role": "user",
+    "status": "active",
+    "created_at": "2026-08-07T12:00:00",
+    "updated_at": "2026-08-07T12:00:00"
+  }
+}`
+      },
+      {
+        title: 'Dual-Token Mode Login Response Schema',
+        description: 'Dictionary payload returned by auth endpoints when dual_token_mode is True (short-lived access token + rotating refresh token)',
+        json: `{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhaWQiOjEsInNpZCI6NjAsImV4cCI6MTc4NzEzMDc2N30...",
+  "refresh_token": "tc_jwt_ref_9a8b7c6d5e4f3a2b1c0d",
   "token_type": "Bearer",
   "account": {
     "id": 1,
@@ -1418,25 +2387,80 @@ export const API_DOCS: DocItem[] = [
       {
         name: 'POST /send/email/otp/{purpose}',
         signature: 'POST /send/email/otp/{purpose}',
-        description: 'Generates and sends a 6-digit numeric One-Time Password via SMTP to the recipient email address for a specific authentication flow.',
+        description: 'Generates and sends a 6-digit numeric One-Time Password via SMTP to the recipient email address for a specific authentication flow. Optionally accepts frontend_url to also embed a magic login link into the email.',
         parameters: [
           { name: 'purpose', type: 'path', required: true, description: 'OTP purpose flow key: "signup", "login", "reset", or "verify".' },
-          { name: 'email', type: 'body (str)', required: true, description: 'Target email address to receive the OTP code.' }
+          { name: 'email', type: 'body (str)', required: true, description: 'Target email address to receive the OTP code.' },
+          { name: 'frontend_url', type: 'body (str) | header | query', required: false, description: 'Optional frontend root URL (e.g. "https://app.example.com"). If provided, generates and embeds a one-click magic link into the email.' }
         ],
         returns: {
           type: 'JSON Object',
-          description: '{"expires_at": 1735689600}'
+          description: '{"expires_at": 1735689600, "frontend_url": "https://app.example.com"}'
         },
         exceptions: ['400 Bad Request: Invalid email format or missing body field.', '500 Internal Error: SMTP delivery failure.'],
-        example: `// Request using apiClient or fetch with base URL
-await apiClient.post("/send/email/otp/signup", { email: "jane@example.com" });
-
-// Or with fetch:
-await fetch(\`\${baseUrl}/send/email/otp/signup\`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ email: "jane@example.com" })
+        example: `// Request using apiClient with optional frontend_url
+await apiClient.post("/send/email/otp/login", {
+  email: "jane@example.com",
+  frontend_url: window.location.origin
 });`
+      },
+      {
+        name: 'POST /send/email/link/{purpose}',
+        signature: 'POST /send/email/link/{purpose}',
+        description: 'Explicit route used when the user clicks "Send me Magic Link" in the UI. Explicitly sets magic-link email templates, resolves the frontend destination URL, and generates a one-click authentication link.',
+        parameters: [
+          { name: 'purpose', type: 'path', required: true, description: 'Flow purpose: "login", "signup", "reset", or "verify".' },
+          { name: 'email', type: 'body (str)', required: true, description: 'Target email address.' },
+          { name: 'frontend_url', type: 'body (str) | header | query', required: false, description: 'Frontend base URL. Auto-detected from Origin, Referer, or Host headers if omitted.' }
+        ],
+        returns: {
+          type: 'JSON Object',
+          description: '{"expires_at": 1735689600, "frontend_url": "https://app.example.com"}'
+        },
+        exceptions: ['400 Bad Request: Invalid email format.', '500 Internal Error: Email dispatch failure.'],
+        example: `// Dedicated Magic Link request
+await apiClient.post("/send/email/link/login", {
+  email: "jane@example.com",
+  frontend_url: window.location.origin
+});`
+      },
+      {
+        name: 'GET /link/{purpose}',
+        signature: 'GET /link/{purpose}?email={EMAIL}&otp={CODE}&frontend_url={URL}',
+        description: 'Direct browser link clicked from email inbox. Verifies the OTP, provisions session tokens, and responds with an HTTP 307 redirect directly to the frontend callback (/oauth/callback or /magic-link/callback) with access_token and refresh_token query params.',
+        parameters: [
+          { name: 'purpose', type: 'path', required: true, description: 'Target flow: "login", "signup", "reset", or "verify".' },
+          { name: 'email', type: 'query (str)', required: true, description: 'Email address encoded in magic link.' },
+          { name: 'otp', type: 'query (str)', required: true, description: '6-digit OTP code embedded in magic link.' },
+          { name: 'frontend_url', type: 'query (str)', required: false, description: 'Frontend redirect URL.' }
+        ],
+        returns: {
+          type: 'HTTP 307 Redirect',
+          description: 'Redirects browser to ${frontend_url}/oauth/callback?access_token={JWT}&refresh_token={REF_TOKEN}&verified=true'
+        },
+        exceptions: ['HTTP 307 Redirect with ?error=... on expired or invalid code.'],
+        example: `// User clicks link in email:
+// https://api.example.com/tc-auth/link/login?email=jane%40example.com&otp=491823&frontend_url=https%3A%2F%2Fapp.example.com`
+      },
+      {
+        name: 'POST /link/{purpose}',
+        signature: 'POST /link/{purpose}',
+        description: 'Bot-safe programmatic verification endpoint. Allows frontend apps to verify magic link tokens or manual OTP codes asynchronously without exposing GET verification to automated email security scanners.',
+        parameters: [
+          { name: 'purpose', type: 'path', required: true, description: 'Target flow: "login", "signup", "reset", or "verify".' },
+          { name: 'email', type: 'body (str)', required: true, description: 'Email address.' },
+          { name: 'otp', type: 'body (str)', required: true, description: '6-digit OTP verification code.' }
+        ],
+        returns: {
+          type: 'JSON Object',
+          description: 'Standard token response containing access_token, refresh_token (in dual mode), token_type, and account.'
+        },
+        exceptions: ['401 Unauthorized: Invalid or expired OTP code.', '404 Not Found: Account not found.'],
+        example: `const res = await apiClient.post("/link/login", {
+  email: "jane@example.com",
+  otp: "491823"
+});
+const { access_token, refresh_token, account } = res.data;`
       },
       {
         name: 'POST /signup/otp',
@@ -1575,14 +2599,14 @@ curl -X POST \${BASE_URL}/login/password \\
     id: 'oauth-routes',
     title: 'OAuth Login Routes',
     module: 'OAuth',
-    description: 'Browser-facing OAuth redirection endpoints for initiating and completing Google OpenID Connect and GitHub OAuth authentication.',
-    overview: `Endpoints manage browser redirects during third-party sign-in flows. The callback routes write session state cookies, so browsers must maintain cookies throughout the redirect chain. Base URL handles provider routing cleanly.`,
+    description: 'Browser-facing OAuth redirection endpoints for initiating and completing Google OpenID Connect, GitHub, and Discord OAuth authentication.',
+    overview: `Endpoints manage browser redirects during third-party sign-in flows (Google, GitHub, and Discord). The callback routes handle code exchanges, profile normalization, user account auto-provisioning or linking, and redirect back to the client application with access tokens (and rotating refresh tokens if dual-token mode is enabled).`,
     content: `OAuth Flow Overview:
-1. User clicks provider login button in frontend application.
-2. Frontend navigates browser to GET /google/login?frontend_url={URL} or GET /github/login?frontend_url={URL}.
+1. User clicks provider login button (Google, GitHub, or Discord) in frontend application.
+2. Frontend navigates browser to GET /{provider}/login?frontend_url={URL}.
 3. Backend saves frontend_url in session and redirects browser to provider authorization consent page.
 4. User authorizes request; provider redirects browser to backend callback with state and code.
-5. Backend exchanges code for user profile, links or creates account, issues session token, and redirects browser back to \`\${frontend_url}/oauth/callback?access_token=...\`.`,
+5. Backend exchanges code for user profile, links or creates account, issues session tokens, and redirects browser back to \`\${frontend_url}/oauth/callback?access_token={JWT}&provider={provider}\` (plus \`&refresh_token={TOKEN}\` when dual-token mode is active).`,
     methods: [
       {
         name: 'GET /google/login',
@@ -2448,6 +3472,133 @@ const accounts = res.data;`
   -H "Authorization: Bearer superadmin-token" \\
   -H "Content-Type: application/json" \\
   -d '{ "account_id": 1 }'`
+  },
+  {
+    id: 'dash-config',
+    title: 'Admin System & Provider Configuration Routes',
+    module: 'System Configuration',
+    description: 'Endpoints for viewing system configuration and updating JWT token modes (Single vs Dual Token), OAuth providers (Google, GitHub, Discord), and SMTP settings.',
+    overview: `Base path: \`/config\`. Requires superadmin authentication header. Allows dynamic adjustment of authentication tokens, expiration lifetimes, and external OAuth client keys.`,
+    schemas: [
+      {
+        title: 'System Configuration Schema',
+        description: 'Complete system configuration object',
+        json: `{
+  "jwt": {
+    "secret_key": "****************",
+    "algorithm": "HS256",
+    "session_duration_days": 7,
+    "dual_token_mode": true,
+    "access_token_expire_minutes": 15,
+    "refresh_token_expire_days": 30
+  },
+  "smtp": {
+    "host": "smtp.example.com",
+    "port": 587,
+    "user": "no-reply@example.com",
+    "from_email": "no-reply@example.com"
+  },
+  "oauth": {
+    "google": { "client_id": "...", "redirect_uri": "..." },
+    "github": { "client_id": "...", "redirect_uri": "..." },
+    "discord": { "client_id": "...", "redirect_uri": "..." }
+  }
+}`
+      }
+    ],
+    methods: [
+      {
+        name: 'GET /config/',
+        signature: 'GET /config/',
+        description: 'Returns the current active system configuration including JWT mode, SMTP settings, and configured OAuth providers.',
+        parameters: [
+          { name: 'Authorization', type: 'header (str)', required: true, description: 'Bearer superadmin access token.' }
+        ],
+        returns: {
+          type: 'JSON Object',
+          description: 'Full system configuration dictionary.'
+        },
+        example: `const res = await apiClient.get("/config/");
+const config = res.data;`
+      },
+      {
+        name: 'POST /config/jwt',
+        signature: 'POST /config/jwt',
+        description: 'Updates JWT configuration and toggles between Single-Token mode and Dual-Token mode with custom expiration intervals.',
+        parameters: [
+          { name: 'Authorization', type: 'header (str)', required: true, description: 'Bearer superadmin access token.' },
+          { name: 'secret_key', type: 'body (str)', required: false, description: 'New signing secret key.' },
+          { name: 'algorithm', type: 'body (str)', required: false, description: 'Algorithm (e.g. HS256).' },
+          { name: 'session_duration_days', type: 'body (int)', required: false, description: 'Token duration in days (Single-Token mode).' },
+          { name: 'dual_token_mode', type: 'body (bool)', required: false, description: 'Set to true for Dual-Token mode, false for Single-Token mode.' },
+          { name: 'access_token_expire_minutes', type: 'body (int)', required: false, description: 'Access token expiration in minutes (Dual-Token mode).' },
+          { name: 'refresh_token_expire_days', type: 'body (int)', required: false, description: 'Refresh token lifetime in days (Dual-Token mode).' }
+        ],
+        returns: {
+          type: 'JSON Object',
+          description: '{"success": true, "message": "JWT configuration updated successfully"}'
+        },
+        example: `await apiClient.post("/config/jwt", {
+  dual_token_mode: true,
+  access_token_expire_minutes: 15,
+  refresh_token_expire_days: 30
+});`
+      },
+      {
+        name: 'POST /config/discord',
+        signature: 'POST /config/discord',
+        description: 'Updates Discord OAuth2 application client ID, client secret, and authorized redirect URI.',
+        parameters: [
+          { name: 'Authorization', type: 'header (str)', required: true, description: 'Bearer superadmin access token.' },
+          { name: 'client_id', type: 'body (str)', required: true, description: 'Discord Application Client ID.' },
+          { name: 'client_secret', type: 'body (str)', required: true, description: 'Discord Application Client Secret.' },
+          { name: 'redirect_uri', type: 'body (str)', required: true, description: 'Registered Discord callback redirect URI.' }
+        ],
+        returns: {
+          type: 'JSON Object',
+          description: '{"success": true, "message": "Discord configuration updated successfully"}'
+        },
+        example: `await apiClient.post("/config/discord", {
+  client_id: "123456789012345678",
+  client_secret: "DISCORD_SECRET_HERE",
+  redirect_uri: "https://api.example.com/oauth/discord/callback"
+});`
+      },
+      {
+        name: 'POST /config/google',
+        signature: 'POST /config/google',
+        description: 'Updates Google OAuth 2.0 Client ID, Client Secret, and redirect URI.',
+        parameters: [
+          { name: 'Authorization', type: 'header (str)', required: true, description: 'Bearer superadmin access token.' },
+          { name: 'client_id', type: 'body (str)', required: true, description: 'Google Cloud Client ID.' },
+          { name: 'client_secret', type: 'body (str)', required: true, description: 'Google Cloud Client Secret.' },
+          { name: 'redirect_uri', type: 'body (str)', required: true, description: 'Google Cloud authorized redirect URI.' }
+        ],
+        returns: {
+          type: 'JSON Object',
+          description: '{"success": true, "message": "Google configuration updated successfully"}'
+        }
+      },
+      {
+        name: 'POST /config/github',
+        signature: 'POST /config/github',
+        description: 'Updates GitHub OAuth application Client ID, Client Secret, and redirect URI.',
+        parameters: [
+          { name: 'Authorization', type: 'header (str)', required: true, description: 'Bearer superadmin access token.' },
+          { name: 'client_id', type: 'body (str)', required: true, description: 'GitHub OAuth Client ID.' },
+          { name: 'client_secret', type: 'body (str)', required: true, description: 'GitHub OAuth Client Secret.' },
+          { name: 'redirect_uri', type: 'body (str)', required: true, description: 'GitHub OAuth callback redirect URI.' }
+        ],
+        returns: {
+          type: 'JSON Object',
+          description: '{"success": true, "message": "GitHub configuration updated successfully"}'
+        }
+      }
+    ],
+    codeSnippet: `curl -X POST \${BASE_URL}/config/jwt \\
+  -H "Authorization: Bearer superadmin-token" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "dual_token_mode": true, "access_token_expire_minutes": 15, "refresh_token_expire_days": 30 }'`
   },
   {
     id: 'system-route',

@@ -17,6 +17,7 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { Badge } from '../components/common/Badge';
 import { PageHeader } from '../components/common/PageHeader';
 import { FormField } from '../components/common/FormField';
+import { NumberInput } from '../components/common/NumberInput';
 import { formatDate, maskSecret } from '../lib/utils';
 import { getErrorMessage } from '../services/apiClient';
 
@@ -382,14 +383,13 @@ export const OtpPage: React.FC = () => {
             </FormField>
 
             <FormField label="Expiration Duration (Seconds)" required hint="Standard default is 600 seconds (10 mins)">
-              <input
-                type="number"
+              <NumberInput
                 value={expiresSeconds ?? 600}
-                onChange={(e) => setExpiresSeconds(Number(e.target.value))}
+                onChange={(val) => setExpiresSeconds(val)}
                 min={30}
                 max={86400}
+                step={60}
                 required
-                className="w-full px-3.5 py-2 text-sm bg-zinc-900 border border-zinc-800 rounded-xl text-white font-mono focus:outline-none focus:border-indigo-500 transition-colors"
               />
             </FormField>
 

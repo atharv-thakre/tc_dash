@@ -2,15 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { CheckCircle2, Loader2, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
-import { apiClient, LOCAL_STORAGE_TOKEN_KEY } from '../services/apiClient';
+import { apiClient, tokenStorage } from '../services/apiClient';
 
 interface OAuthCallbackPageProps {
-  provider?: 'google' | 'github';
+  provider?: 'google' | 'github' | 'discord';
   onNavigate: (path: string) => void;
 }
 
 export const OAuthCallbackPage: React.FC<OAuthCallbackPageProps> = ({ provider = 'google', onNavigate }) => {
-  const { refetchMe, account } = useAuth();
+  const { refetchMe } = useAuth();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -22,19 +22,47 @@ export const OAuthCallbackPage: React.FC<OAuthCallbackPageProps> = ({ provider =
         hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
       }
 
-      // 1. Direct access_token in query or hash parameter (e.g. /oauth/callback?access_token=...)
+      // Check for OAuth errors or account linking callbacks
+      const errorParam = urlParams.get('error') || hashParams?.get('error');
+      const errorDesc = urlParams.get('error_description') || hashParams?.get('error_description');
+      const linkedParam = urlParams.get('linked') || hashParams?.get('linked');
+      const providerParam = urlParams.get('provider') || hashParams?.get('provider');
+
+      if (linkedParam === 'true') {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        toast.success(`Connected ${providerParam || provider} account successfully`);
+        onNavigate('/profile');
+        return;
+      }
+
+      if (errorParam || linkedParam === 'false') {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        setStatus('error');
+        setErrorMessage(errorDesc || errorParam || 'OAuth authentication or account linking failed.');
+        toast.error(errorDesc || errorParam || 'OAuth failed');
+        return;
+      }
+
+      // 1. Direct access_token / refresh_token in query or hash parameter
       const directToken =
         urlParams.get('access_token') ||
         urlParams.get('token') ||
         hashParams?.get('access_token') ||
         hashParams?.get('token');
 
+      const directRefreshToken =
+        urlParams.get('refresh_token') ||
+        hashParams?.get('refresh_token');
+
       if (directToken) {
         try {
-          localStorage.setItem(LOCAL_STORAGE_TOKEN_KEY, directToken);
+          tokenStorage.setTokens(directToken, directRefreshToken);
+          // Clean query parameters from URL history immediately for security
+          window.history.replaceState({}, document.title, window.location.pathname);
+
           await refetchMe();
           setStatus('success');
-          toast.success('Successfully logged in via OAuth');
+          toast.success('Successfully authenticated via OAuth');
           setTimeout(() => onNavigate('/dashboard'), 800);
           return;
         } catch (err: any) {
@@ -50,7 +78,11 @@ export const OAuthCallbackPage: React.FC<OAuthCallbackPageProps> = ({ provider =
       if (code) {
         const detectedProvider =
           urlParams.get('provider') ||
-          (window.location.pathname.includes('github') ? 'github' : 'google');
+          (window.location.pathname.includes('github')
+            ? 'github'
+            : window.location.pathname.includes('discord')
+            ? 'discord'
+            : 'google');
 
         const endpointsToTry = [
           `/${detectedProvider}/callback?code=${encodeURIComponent(code)}`,
@@ -58,6 +90,7 @@ export const OAuthCallbackPage: React.FC<OAuthCallbackPageProps> = ({ provider =
         ];
 
         let tokenObtained: string | null = null;
+        let refreshTokenObtained: string | null = null;
         let lastError: any = null;
 
         for (const ep of endpointsToTry) {
@@ -65,6 +98,7 @@ export const OAuthCallbackPage: React.FC<OAuthCallbackPageProps> = ({ provider =
             const res = await apiClient.get(ep);
             if (res.data?.access_token || res.data?.token) {
               tokenObtained = res.data.access_token || res.data.token;
+              refreshTokenObtained = res.data.refresh_token || null;
               break;
             }
           } catch (err: any) {
@@ -73,10 +107,14 @@ export const OAuthCallbackPage: React.FC<OAuthCallbackPageProps> = ({ provider =
         }
 
         if (tokenObtained) {
-          localStorage.setItem(LOCAL_STORAGE_TOKEN_KEY, tokenObtained);
+          tokenStorage.setTokens(tokenObtained, refreshTokenObtained);
+          // Clean query parameters from URL history immediately for security
+          window.history.replaceState({}, document.title, window.location.pathname);
+
           await refetchMe();
           setStatus('success');
-          toast.success(`Successfully authenticated with ${detectedProvider}`);
+          const provName = detectedProvider === 'discord' ? 'Discord' : detectedProvider === 'github' ? 'GitHub' : 'Google';
+          toast.success(`Successfully authenticated with ${provName}`);
           setTimeout(() => onNavigate('/dashboard'), 800);
           return;
         } else {
@@ -91,7 +129,7 @@ export const OAuthCallbackPage: React.FC<OAuthCallbackPageProps> = ({ provider =
       }
 
       // 3. Fallback: check if user is already authenticated in local state
-      const existingToken = localStorage.getItem(LOCAL_STORAGE_TOKEN_KEY);
+      const existingToken = tokenStorage.getAccessToken();
       if (existingToken) {
         try {
           await refetchMe();
@@ -111,6 +149,8 @@ export const OAuthCallbackPage: React.FC<OAuthCallbackPageProps> = ({ provider =
     processCallback();
   }, [provider]);
 
+  const providerLabel = provider === 'google' ? 'Google' : provider === 'github' ? 'GitHub' : 'Discord';
+
   return (
     <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center">
       <div className="w-full max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-8 shadow-xl">
@@ -118,10 +158,10 @@ export const OAuthCallbackPage: React.FC<OAuthCallbackPageProps> = ({ provider =
           <div className="space-y-4">
             <Loader2 className="w-10 h-10 text-indigo-500 animate-spin mx-auto" />
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-              Authenticating with {provider === 'google' ? 'Google' : 'GitHub'}...
+              Authenticating with {providerLabel}...
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Exchanging authorization token code with <code className="font-mono text-indigo-500">/{provider}/callback</code>
+              Exchanging authorization code with <code className="font-mono text-indigo-500">/{provider}/callback</code>
             </p>
           </div>
         )}
@@ -143,7 +183,7 @@ export const OAuthCallbackPage: React.FC<OAuthCallbackPageProps> = ({ provider =
             <p className="text-xs text-gray-600 dark:text-gray-300">{errorMessage}</p>
             <button
               onClick={() => onNavigate('/login')}
-              className="mt-4 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl"
+              className="mt-4 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl cursor-pointer"
             >
               Back to Login
             </button>

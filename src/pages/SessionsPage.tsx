@@ -332,7 +332,7 @@ export const SessionsPage: React.FC = () => {
         }}
         actions={(item) => (
           <button
-            onClick={() => setRevokingSessionId(item.id)}
+            onClick={() => setRevokingSessionId(String(item.id))}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all shadow-2xs cursor-pointer"
             title="Revoke session"
           >

@@ -18,6 +18,7 @@ import { OtpPage } from './pages/OtpPage';
 import { ConfigPage } from './pages/ConfigPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
+import { MagicLinkCallbackPage } from './pages/MagicLinkCallbackPage';
 import { DocsPage } from './pages/DocsPage';
 
 const queryClient = new QueryClient({
@@ -41,6 +42,7 @@ function AppRouter() {
     ) {
       if (pathname.includes('github')) return '/github/callback';
       if (pathname.includes('google')) return '/google/callback';
+      if (pathname.includes('discord')) return '/discord/callback';
       return '/oauth/callback';
     }
     return pathname || '/';
@@ -77,13 +79,22 @@ function AppRouter() {
     return <SignupPage onNavigate={handleNavigate} />;
   }
 
+  if (currentPath === '/magic-link/callback' || currentPath.startsWith('/magic-link/callback')) {
+    return <MagicLinkCallbackPage onNavigate={handleNavigate} />;
+  }
+
   if (
     currentPath === '/google/callback' ||
     currentPath === '/github/callback' ||
+    currentPath === '/discord/callback' ||
     currentPath === '/oauth/callback' ||
     currentPath.includes('/callback')
   ) {
-    const provider = currentPath.includes('github') ? 'github' : 'google';
+    const provider = currentPath.includes('github')
+      ? 'github'
+      : currentPath.includes('discord')
+      ? 'discord'
+      : 'google';
     return <OAuthCallbackPage provider={provider} onNavigate={handleNavigate} />;
   }
 

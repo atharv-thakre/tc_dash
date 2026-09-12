@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Check, Database, Globe, Key, LogOut, Menu, Server, Settings, ShieldCheck, User, X } from 'lucide-react';
+import { Check, Copy, Database, Globe, Key, LogOut, Menu, Server, Settings, ShieldCheck, User, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { useApiConfig } from '../../contexts/ApiConfigContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { tokenStorage } from '../../services/apiClient';
 import { Badge } from '../common/Badge';
 import { UserAvatar } from '../common/UserAvatar';
 import { ApiConfigModal } from '../common/ApiConfigModal';
@@ -19,6 +21,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, activePat
   const { apiMode } = useApiConfig();
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [hasCopiedToken, setHasCopiedToken] = useState(false);
+
+  const handleCopyToken = () => {
+    const token = tokenStorage.getAccessToken();
+    if (!token) {
+      toast.error('No active access token found');
+      return;
+    }
+    navigator.clipboard.writeText(token);
+    setHasCopiedToken(true);
+    toast.success('Access Token copied to clipboard!');
+    setTimeout(() => setHasCopiedToken(false), 2000);
+  };
 
   return (
     <>
@@ -97,10 +112,25 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, activePat
                       setIsUserMenuOpen(false);
                       onNavigate('/profile');
                     }}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 rounded-lg transition-colors"
+                    className="flex items-center gap-2 w-full px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
                   >
                     <User className="w-4 h-4 text-zinc-400" />
                     Account Settings
+                  </button>
+
+                  <button
+                    onClick={handleCopyToken}
+                    className="flex items-center justify-between w-full px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Key className="w-4 h-4 text-indigo-400" />
+                      <span>Copy Access Token</span>
+                    </div>
+                    {hasCopiedToken ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5 text-zinc-500" />
+                    )}
                   </button>
 
                   <button

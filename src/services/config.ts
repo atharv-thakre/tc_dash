@@ -12,7 +12,7 @@ import { INITIAL_CONFIG } from './mockData';
 
 const DEMO_CONFIG_KEY = 'tc_auth_demo_config';
 
-function getDemoConfig(): ConfigPayload {
+export function getDemoConfig(): ConfigPayload {
   const data = localStorage.getItem(DEMO_CONFIG_KEY);
   if (!data) {
     localStorage.setItem(DEMO_CONFIG_KEY, JSON.stringify(INITIAL_CONFIG));
@@ -25,7 +25,7 @@ function getDemoConfig(): ConfigPayload {
   }
 }
 
-function saveDemoConfig(config: ConfigPayload) {
+export function saveDemoConfig(config: ConfigPayload) {
   localStorage.setItem(DEMO_CONFIG_KEY, JSON.stringify(config));
 }
 

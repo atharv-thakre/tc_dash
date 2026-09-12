@@ -48,7 +48,7 @@ const passwordSchema = z.object({
 type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
-  const { loginPassword, loginOTP, loginOAuth, forgotPassword } = useAuth();
+  const { loginPassword, loginOTP, loginMagicLink, loginOAuth, forgotPassword } = useAuth();
   const {
     apiMode,
     setApiMode,
@@ -60,11 +60,17 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
     removePreset,
   } = useApiConfig();
 
-  const [tab, setTab] = useState<'password' | 'otp' | 'reset'>('password');
+  const [tab, setTab] = useState<'password' | 'otp' | 'magic_link' | 'reset'>('password');
   const [otpEmail, setOtpEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
+
+  // Magic Link State
+  const [magicEmail, setMagicEmail] = useState('');
+  const [magicCode, setMagicCode] = useState('');
+  const [magicSent, setMagicSent] = useState(false);
+  const [isSendingMagic, setIsSendingMagic] = useState(false);
 
   // Forgot / Reset Password State
   const [forgotEmail, setForgotEmail] = useState('');
@@ -152,13 +158,83 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
     }
     setIsSendingOtp(true);
     try {
-      await authService.sendEmailOTP('login', { email: otpEmail });
+      const frontendUrl = typeof window !== 'undefined' ? window.location.origin : undefined;
+      await authService.sendEmailOTP('login', { email: otpEmail, frontend_url: frontendUrl });
       setOtpSent(true);
-      toast.success('OTP sent to email. Code expires soon.');
+      toast.success('OTP and Magic Link sent to your email.');
     } catch (err: any) {
       toast.error(getErrorMessage(err, 'Failed to send OTP code.'));
     } finally {
       setIsSendingOtp(false);
+    }
+  };
+
+  const handleSendMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (apiMode === 'demo') {
+      setIsLoading(true);
+      try {
+        await loginPassword({
+          identifier: 'admin@tcauth.dev',
+          password: 'password123',
+        });
+        toast.success('Signed in as SuperAdmin in Demo Mode');
+        onNavigate('/dashboard');
+      } catch (err: any) {
+        toast.error(getErrorMessage(err, 'Failed to sign in as demo superadmin'));
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+    if (!magicEmail) {
+      toast.error('Please enter your email address');
+      return;
+    }
+    setIsSendingMagic(true);
+    try {
+      const frontendUrl = typeof window !== 'undefined' ? window.location.origin : undefined;
+      await authService.sendMagicLink('login', { email: magicEmail, frontend_url: frontendUrl });
+      setMagicSent(true);
+      toast.success('Magic Link sent! Check your inbox to sign in with one click.');
+    } catch (err: any) {
+      toast.error(getErrorMessage(err, 'Failed to send Magic Link.'));
+    } finally {
+      setIsSendingMagic(false);
+    }
+  };
+
+  const handleVerifyMagicLinkBotSafe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (apiMode === 'demo') {
+      setIsLoading(true);
+      try {
+        await loginPassword({
+          identifier: 'admin@tcauth.dev',
+          password: 'password123',
+        });
+        toast.success('Signed in as SuperAdmin in Demo Mode');
+        onNavigate('/dashboard');
+      } catch (err: any) {
+        toast.error(getErrorMessage(err, 'Failed to sign in as demo superadmin'));
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+    if (!magicCode) {
+      toast.error('Please enter the 6-digit code');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await loginMagicLink({ email: magicEmail, otp: magicCode });
+      toast.success('Authenticated successfully via Magic Link code!');
+      onNavigate('/dashboard');
+    } catch (err: any) {
+      toast.error(getErrorMessage(err, 'Invalid or expired code.'));
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -638,6 +714,7 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
         <div className="space-y-2.5 mb-5">
           <ProviderButton provider="google" onSuccessNavigate={() => onNavigate('/dashboard')} />
           <ProviderButton provider="github" onSuccessNavigate={() => onNavigate('/dashboard')} />
+          <ProviderButton provider="discord" onSuccessNavigate={() => onNavigate('/dashboard')} />
         </div>
 
         <div className="relative my-5">
@@ -651,18 +728,19 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
           </div>
         </div>
 
-        {/* Tab Switcher: Password vs OTP vs Reset */}
+        {/* Tab Switcher: Password vs OTP vs Magic Link vs Reset */}
         <div className="relative flex p-1 mb-5 rounded-2xl bg-zinc-950 border border-zinc-800/80">
-          {(['password', 'otp', 'reset'] as const).map((t) => {
+          {(['password', 'otp', 'magic_link', 'reset'] as const).map((t) => {
             const isActive = tab === t;
-            const label = t === 'password' ? 'Password' : t === 'otp' ? 'Email OTP' : 'Reset';
-            const Icon = t === 'password' ? KeyRound : t === 'otp' ? Mail : RotateCcw;
+            const label =
+              t === 'password' ? 'Password' : t === 'otp' ? 'Email OTP' : t === 'magic_link' ? 'Magic Link' : 'Reset';
+            const Icon = t === 'password' ? KeyRound : t === 'otp' ? Mail : t === 'magic_link' ? Sparkles : RotateCcw;
             return (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
-                className={`relative flex-1 py-2 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 z-10 select-none ${
+                className={`relative flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 z-10 select-none ${
                   isActive ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
@@ -674,7 +752,7 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
                   />
                 )}
                 <Icon className={`w-3.5 h-3.5 transition-colors ${isActive ? (apiMode === 'demo' ? 'text-amber-400' : 'text-indigo-400') : 'text-zinc-500'}`} />
-                <span>{label}</span>
+                <span className="truncate">{label}</span>
               </button>
             );
           })}
@@ -873,6 +951,131 @@ export const LoginPage: React.FC<{ onNavigate: (path: string) => void }> = ({ on
                     )}
                   </button>
                 </form>
+              )}
+            </motion.div>
+          )}
+
+          {tab === 'magic_link' && (
+            <motion.div
+              key="magic_link"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="space-y-4"
+            >
+              <div className="flex items-center justify-between pb-1 border-b border-zinc-800/60">
+                <ShinyText text="Passwordless Authentication" speed={3} className="text-xs font-semibold text-zinc-300" />
+                <span className="text-[10px] font-medium text-indigo-400 bg-indigo-950/60 px-2 py-0.5 rounded-full border border-indigo-800/50 flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5" /> One-Click Sign In
+                </span>
+              </div>
+
+              {!magicSent ? (
+                <form onSubmit={handleSendMagicLink} noValidate={apiMode === 'demo'} className="space-y-4">
+                  <FormField
+                    label="Email Address"
+                    required={apiMode !== 'demo'}
+                    hint="We will send an instant one-click login link directly to your inbox."
+                  >
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" />
+                      <input
+                        type="email"
+                        value={magicEmail || ''}
+                        onChange={(e) => setMagicEmail(e.target.value)}
+                        placeholder="jane@example.com"
+                        required={apiMode !== 'demo'}
+                        className="w-full pl-9 pr-3 py-2 text-sm bg-zinc-950 border border-zinc-800 rounded-xl text-white placeholder:text-zinc-600 focus:ring-2 focus:ring-indigo-500/50"
+                      />
+                    </div>
+                  </FormField>
+
+                  <button
+                    type="submit"
+                    formNoValidate={apiMode === 'demo'}
+                    disabled={isSendingMagic}
+                    className={`relative w-full py-3 px-4 text-sm font-bold rounded-xl disabled:opacity-50 transition-all flex items-center justify-center gap-2 mt-3 cursor-pointer overflow-hidden group select-none ${
+                      apiMode === 'demo'
+                        ? 'bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-zinc-950 shadow-lg shadow-amber-500/20 border border-amber-300/60 font-black'
+                        : 'bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white shadow-lg shadow-indigo-600/25 border border-indigo-500/30'
+                    }`}
+                  >
+                    <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+
+                    {isSendingMagic ? (
+                      <span className={`w-4 h-4 border-2 ${apiMode === 'demo' ? 'border-zinc-950' : 'border-white'} border-t-transparent rounded-full animate-spin`} />
+                    ) : (
+                      <>
+                        {apiMode === 'demo' ? (
+                          <>
+                            <Zap className="w-4 h-4 text-zinc-950 fill-zinc-950" />
+                            <span>Sign In as SuperAdmin</span>
+                            <ArrowRight className="w-4 h-4 text-zinc-950 group-hover:translate-x-0.5 transition-transform" />
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4" />
+                            <span>Send me Magic Link</span>
+                            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                          </>
+                        )}
+                      </>
+                    )}
+                  </button>
+                </form>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-800/50 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-indigo-200 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Magic Link Dispatched!
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setMagicSent(false)}
+                        className="text-[11px] font-semibold text-zinc-400 hover:text-white underline cursor-pointer"
+                      >
+                        Change
+                      </button>
+                    </div>
+                    <p className="text-xs text-zinc-300 leading-relaxed">
+                      We sent a one-click login link to <strong className="text-white font-mono">{magicEmail}</strong>. Check your inbox and click the button to proceed.
+                    </p>
+                  </div>
+
+                  {/* Dual Mode: In-page Bot-Safe / Manual fallback */}
+                  <form onSubmit={handleVerifyMagicLinkBotSafe} noValidate={apiMode === 'demo'} className="pt-2 border-t border-zinc-800/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-zinc-400">Opening on another device?</span>
+                      <span className="text-[10px] text-zinc-500 font-mono">Enter Code</span>
+                    </div>
+
+                    <input
+                      type="text"
+                      value={magicCode}
+                      onChange={(e) => setMagicCode(e.target.value)}
+                      placeholder="Enter 6-digit code from email"
+                      maxLength={12}
+                      className="w-full text-center tracking-[0.25em] font-mono text-base py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-indigo-200 placeholder:tracking-normal placeholder:font-sans placeholder:text-zinc-600 placeholder:text-xs focus:ring-2 focus:ring-indigo-500/50"
+                    />
+
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="w-full py-2.5 px-4 text-xs font-bold rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white transition-colors cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      {isLoading ? (
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <span>Verify Code In Browser</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
               )}
             </motion.div>
           )}

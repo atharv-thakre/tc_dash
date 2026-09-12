@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   BookOpen,
   ChevronDown,
@@ -37,10 +37,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { account, logout, isSuperAdmin } = useAuth();
 
-  // Collapsible Documentation States
+  // Collapsible Documentation States:
+  // Documentation section stays open, but REST API (api) and Library Usage (lib/sdk)
+  // remain strictly collapsed by default until clicked on or navigated to a specific document.
   const [isDocsOpen, setIsDocsOpen] = useState(true);
-  const [isLibOpen, setIsLibOpen] = useState(true);
+  const [isLibOpen, setIsLibOpen] = useState(false);
   const [isApiOpen, setIsApiOpen] = useState(false);
+
+  const prevPathRef = useRef(activePath);
+  useEffect(() => {
+    if (prevPathRef.current !== activePath) {
+      if (activePath.startsWith('/docs/api/')) {
+        setIsApiOpen(true);
+        setIsDocsOpen(true);
+      } else if (activePath.startsWith('/docs/lib/')) {
+        setIsLibOpen(true);
+        setIsDocsOpen(true);
+      }
+      prevPathRef.current = activePath;
+    }
+  }, [activePath]);
 
   const navItems = [
     { label: 'Landing Page', path: '/', icon: Globe, requiresSuperAdmin: false },
@@ -126,12 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Expandable API Docs Group */}
                 <div className="space-y-0.5">
                   <button
-                    onClick={() => {
-                      setIsApiOpen(!isApiOpen);
-                      if (!activePath.startsWith('/docs/api')) {
-                        handleNavClick(`/docs/api/${API_DOCS[0].id}`);
-                      }
-                    }}
+                    onClick={() => setIsApiOpen(!isApiOpen)}
                     className={cn(
                       'flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border border-transparent cursor-pointer',
                       activePath.startsWith('/docs/api')

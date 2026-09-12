@@ -67,7 +67,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
-  const [activeCodeTab, setActiveCodeTab] = useState<'init' | 'otp' | 'sessions' | 'rest'>('init');
+  const [activeCodeTab, setActiveCodeTab] = useState<'init' | 'otp' | 'sessions' | 'oauth' | 'dualtoken' | 'rest'>('init');
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -161,7 +161,50 @@ auth.session.revoke_session(session_id=42)
 # Purge all sessions across all devices (force global re-login)
 auth.session.revoke_all_sessions(account_id=1)`,
 
-    rest: `# 4. Standard REST API Call (cURL)
+    oauth: `# 4. OAuth 2.0 Trio (Google, GitHub & Discord)
+from tc_auth import Auth
+
+auth = Auth(app=app, engine=engine, secret_key="your-jwt-secret")
+
+# Step A: Generate authorized login URL with PKCE
+# Supported providers: "google", "github", or "discord"
+auth_url = auth.service.get_oauth_login_url(
+    provider="discord", # or "google" | "github"
+    redirect_uri="https://app.com/discord/callback"
+)
+
+# Step B: Exchange callback code for unified user account & tokens
+auth_data = auth.service.handle_oauth_callback(
+    provider="discord",
+    code="oauth_authorization_code_here",
+    redirect_uri="https://app.com/discord/callback"
+)
+
+print("User authenticated via Discord:", auth_data["account"]["email"])
+print("JWT Access Token:", auth_data["access_token"])
+print("Rotating Refresh Token:", auth_data["refresh_token"])`,
+
+    dualtoken: `# 5. Dual Token Mode & Refresh Token Rotation
+from tc_auth import Auth
+
+auth = Auth(
+    app=app,
+    engine=engine,
+    secret_key="your-jwt-secret",
+    access_token_ttl_minutes=15,       # Short-lived access JWT
+    refresh_token_ttl_days=30          # Stateful sliding refresh window
+)
+
+# Rotate refresh token: single-use policy invalidates old refresh token
+# and issues a brand-new access token + refresh token pair
+tokens = auth.service.refresh_token(
+    refresh_token="tc_ref_98a7c2e401b..."
+)
+
+print("New 15m Access Token:", tokens["access_token"])
+print("Rotated Single-Use Refresh Token:", tokens["refresh_token"])`,
+
+    rest: `# 6. Standard REST API Call (cURL)
 curl -X POST https://api.example.com/tc-auth/login/password \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -172,6 +215,7 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
 # Response: 200 OK
 # {
 #   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#   "refresh_token": "tc_ref_89102c4819e04...",
 #   "token_type": "Bearer",
 #   "account": {
 #     "id": 1,
@@ -439,8 +483,8 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
               className="text-base sm:text-lg text-zinc-400 font-normal max-w-2xl mx-auto leading-relaxed"
             >
               A self-hosted, modular authentication framework for Python backends.
-              Featuring database-backed stateful JWT sessions, passwordless email OTP,
-              Google & GitHub OAuth 2.0, and a live administration console.
+              Featuring database-backed stateful JWT sessions, dual-token refresh rotation,
+              passwordless email OTP, Google, GitHub & Discord OAuth 2.0, and a live administration console.
             </motion.p>
 
             {/* Options To Launch in Demo, Sign In, or Create Account */}
@@ -574,6 +618,26 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
                   Sessions
                 </button>
                 <button
+                  onClick={() => setActiveCodeTab('oauth')}
+                  className={`px-2 sm:px-2.5 py-1 rounded-md text-xs font-mono font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                    activeCodeTab === 'oauth'
+                      ? 'bg-zinc-800 text-indigo-400 shadow-2xs'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  OAuth Trio
+                </button>
+                <button
+                  onClick={() => setActiveCodeTab('dualtoken')}
+                  className={`px-2 sm:px-2.5 py-1 rounded-md text-xs font-mono font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                    activeCodeTab === 'dualtoken'
+                      ? 'bg-zinc-800 text-indigo-400 shadow-2xs'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Dual Tokens
+                </button>
+                <button
                   onClick={() => setActiveCodeTab('rest')}
                   className={`px-2 sm:px-2.5 py-1 rounded-md text-xs font-mono font-semibold transition-all cursor-pointer whitespace-nowrap ${
                     activeCodeTab === 'rest'
@@ -632,9 +696,9 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
 
             <div className="space-y-1">
               <div className="text-2xl sm:text-3xl font-black text-purple-400 font-mono flex items-center justify-center">
-                <AnimatedCounter to={4} suffix=" Strategies" />
+                <AnimatedCounter to={5} suffix=" Strategies" />
               </div>
-              <p className="text-xs text-zinc-400 font-medium">Password, OTP, Google, GitHub</p>
+              <p className="text-xs text-zinc-400 font-medium">Password, OTP, Google, GitHub, Discord</p>
             </div>
 
             <div className="space-y-1">
@@ -769,7 +833,7 @@ curl -X POST https://api.example.com/tc-auth/login/password \\
               <div className="text-3xl font-black font-mono text-indigo-400">03</div>
               <h3 className="text-base font-bold text-white">Manage & Monitor</h3>
               <p className="text-xs text-zinc-400">
-                Open the interactive control panel to configure SMTP, Google/GitHub OAuth, and audit sessions.
+                Open the interactive control panel to configure SMTP, Google/GitHub/Discord OAuth, dual tokens, and audit sessions.
               </p>
               <div className="flex gap-2 pt-1">
                 <button

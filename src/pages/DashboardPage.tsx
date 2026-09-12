@@ -29,6 +29,7 @@ import { formatDate } from '../lib/utils';
 import { AnimatedCounter } from '../components/reactbits/AnimatedCounter';
 import { BorderBeam } from '../components/reactbits/BorderBeam';
 import { DecryptedText } from '../components/reactbits/DecryptedText';
+import { TokenDisplayCard } from '../components/common/TokenDisplayCard';
 import { SITE_VERSION_LABEL } from '../config/version';
 
 export const DashboardPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
@@ -272,6 +273,12 @@ export const DashboardPage: React.FC<{ onNavigate: (path: string) => void }> = (
           </div>
         </div>
       </div>
+
+      {/* Active Session Token Inspection & One-Click Copy */}
+      <TokenDisplayCard
+        title="Active Session Token"
+        description="Inspect, copy, or use your current JWT Bearer token with curl, Postman, or custom API clients."
+      />
 
       {/* Current Session Context & Claims */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

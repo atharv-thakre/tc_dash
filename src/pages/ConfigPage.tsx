@@ -8,8 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { PageHeader } from '../components/common/PageHeader';
 import { FormField } from '../components/common/FormField';
 import { LoadingState } from '../components/common/LoadingState';
+import { NumberInput } from '../components/common/NumberInput';
 import { BorderBeam } from '../components/reactbits/BorderBeam';
 import { getErrorMessage } from '../services/apiClient';
+
+const DiscordIcon = () => (
+  <svg className="w-4 h-4 shrink-0 fill-[#5865F2]" viewBox="0 0 24 24">
+    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+  </svg>
+);
 
 export const ConfigPage: React.FC = () => {
   const [config, setConfig] = useState<ConfigPayload | null>(null);
@@ -204,11 +211,13 @@ export const ConfigPage: React.FC = () => {
         description="Configure SMTP email delivery, OAuth social login credentials, and JWT token signing parameters."
         action={
           <button
+            type="button"
             onClick={fetchConfig}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 transition-colors shadow-2xs cursor-pointer"
+            disabled={isLoading}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 shadow-2xs transition-all cursor-pointer disabled:opacity-50 active:scale-98"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-zinc-400 ${isLoading ? 'animate-spin' : ''}`} />
-            Reload Config (`GET /config/load/`)
+            <RefreshCw className={`w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>{isLoading ? 'Reloading...' : 'Reload Config'}</span>
           </button>
         }
       />
@@ -222,7 +231,7 @@ export const ConfigPage: React.FC = () => {
               <Mail className="w-4 h-4 text-indigo-400" />
               1. Email (SMTP) Delivery Config
             </CardTitle>
-            <CardDescription>Endpoint: `POST /config/email` — Mailer settings for sending OTP codes.</CardDescription>
+            <CardDescription>Mailer settings for sending OTP verification codes and alerts.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSaveEmail} className="space-y-3.5">
@@ -241,13 +250,13 @@ export const ConfigPage: React.FC = () => {
                 </div>
                 <div>
                   <FormField label="Port" required>
-                    <input
-                      type="number"
-                      value={emailForm.port ?? ''}
-                      onChange={(e) => setEmailForm({ ...emailForm, port: Number(e.target.value) })}
+                    <NumberInput
+                      value={emailForm.port ?? 587}
+                      onChange={(val) => setEmailForm({ ...emailForm, port: val })}
+                      min={1}
+                      max={65535}
                       placeholder="587"
                       required
-                      className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
                     />
                   </FormField>
                 </div>
@@ -277,7 +286,7 @@ export const ConfigPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowSecrets({ ...showSecrets, smtpPassword: !showSecrets.smtpPassword })}
-                    className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-200"
+                    className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-200 cursor-pointer"
                   >
                     {showSecrets.smtpPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
@@ -325,7 +334,7 @@ export const ConfigPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={savingSection === 'email'}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 active:scale-98"
                 >
                   <Save className="w-3.5 h-3.5" />
                   {savingSection === 'email' ? 'Saving...' : 'Save Email Config'}
@@ -345,7 +354,7 @@ export const ConfigPage: React.FC = () => {
               </svg>
               2. GitHub OAuth App Config
             </CardTitle>
-            <CardDescription>Endpoint: `POST /config/github` — OAuth credentials for GitHub login.</CardDescription>
+            <CardDescription>OAuth credentials for GitHub social authentication.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSaveGithub} className="space-y-3.5">
@@ -373,7 +382,7 @@ export const ConfigPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowSecrets({ ...showSecrets, githubSecret: !showSecrets.githubSecret })}
-                    className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-200"
+                    className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-200 cursor-pointer"
                   >
                     {showSecrets.githubSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
@@ -381,36 +390,21 @@ export const ConfigPage: React.FC = () => {
               </FormField>
 
               <FormField label="Redirect Callback URI" required>
-                <div className="space-y-1.5">
-                  <input
-                    type="text"
-                    value={githubForm.redirect_uri || ''}
-                    onChange={(e) => setGithubForm({ ...githubForm, redirect_uri: e.target.value })}
-                    placeholder="http://localhost:3000/tc-auth/github/callback"
-                    required
-                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
-                  />
-                  <div className="flex items-center gap-2 text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const detected = `${window.location.origin}/tc-auth/github/callback`;
-                        setGithubForm({ ...githubForm, redirect_uri: detected });
-                        toast.success('Updated GitHub Redirect URI');
-                      }}
-                      className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
-                    >
-                      + Use Current Origin URI ({window.location.origin}/tc-auth/github/callback)
-                    </button>
-                  </div>
-                </div>
+                <input
+                  type="text"
+                  value={githubForm.redirect_uri || ''}
+                  onChange={(e) => setGithubForm({ ...githubForm, redirect_uri: e.target.value })}
+                  placeholder="http://localhost:3000/tc-auth/github/callback"
+                  required
+                  className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
+                />
               </FormField>
 
               <div className="pt-3 flex justify-end">
                 <button
                   type="submit"
                   disabled={savingSection === 'github'}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 active:scale-98"
                 >
                   <Save className="w-3.5 h-3.5" />
                   {savingSection === 'github' ? 'Saving...' : 'Save GitHub Config'}
@@ -445,7 +439,7 @@ export const ConfigPage: React.FC = () => {
               </svg>
               3. Google OAuth Client Config
             </CardTitle>
-            <CardDescription>Endpoint: `POST /config/google` — OAuth credentials for Google Workspace login.</CardDescription>
+            <CardDescription>OAuth credentials for Google Workspace social login.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSaveGoogle} className="space-y-3.5">
@@ -473,7 +467,7 @@ export const ConfigPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowSecrets({ ...showSecrets, googleSecret: !showSecrets.googleSecret })}
-                    className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-200"
+                    className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-200 cursor-pointer"
                   >
                     {showSecrets.googleSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
@@ -481,36 +475,21 @@ export const ConfigPage: React.FC = () => {
               </FormField>
 
               <FormField label="Redirect Callback URI" required>
-                <div className="space-y-1.5">
-                  <input
-                    type="text"
-                    value={googleForm.redirect_uri || ''}
-                    onChange={(e) => setGoogleForm({ ...googleForm, redirect_uri: e.target.value })}
-                    placeholder="http://localhost:3000/tc-auth/google/callback"
-                    required
-                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
-                  />
-                  <div className="flex items-center gap-2 text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const detected = `${window.location.origin}/tc-auth/google/callback`;
-                        setGoogleForm({ ...googleForm, redirect_uri: detected });
-                        toast.success('Updated Google Redirect URI');
-                      }}
-                      className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
-                    >
-                      + Use Current Origin URI ({window.location.origin}/tc-auth/google/callback)
-                    </button>
-                  </div>
-                </div>
+                <input
+                  type="text"
+                  value={googleForm.redirect_uri || ''}
+                  onChange={(e) => setGoogleForm({ ...googleForm, redirect_uri: e.target.value })}
+                  placeholder="http://localhost:3000/tc-auth/google/callback"
+                  required
+                  className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
+                />
               </FormField>
 
               <div className="pt-3 flex justify-end">
                 <button
                   type="submit"
                   disabled={savingSection === 'google'}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 active:scale-98"
                 >
                   <Save className="w-3.5 h-3.5" />
                   {savingSection === 'google' ? 'Saving...' : 'Save Google Config'}
@@ -525,10 +504,10 @@ export const ConfigPage: React.FC = () => {
           {savingSection === 'discord' && <BorderBeam size={200} duration={8} colorFrom="#5865F2" colorTo="#a855f7" />}
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="w-4 h-4 text-[#5865F2]" />
+              <DiscordIcon />
               4. Discord OAuth 2.0 Client Config
             </CardTitle>
-            <CardDescription>Endpoint: `POST /config/discord` — Discord Developer Portal credentials.</CardDescription>
+            <CardDescription>Discord Developer Portal application credentials for social authentication.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSaveDiscord} className="space-y-3.5">
@@ -556,7 +535,7 @@ export const ConfigPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowSecrets({ ...showSecrets, discordSecret: !showSecrets.discordSecret })}
-                    className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-200"
+                    className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-200 cursor-pointer"
                   >
                     {showSecrets.discordSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
@@ -564,36 +543,21 @@ export const ConfigPage: React.FC = () => {
               </FormField>
 
               <FormField label="Redirect Callback URI" required>
-                <div className="space-y-1.5">
-                  <input
-                    type="text"
-                    value={discordForm.redirect_uri || ''}
-                    onChange={(e) => setDiscordForm({ ...discordForm, redirect_uri: e.target.value })}
-                    placeholder="http://localhost:3000/tc-auth/discord/callback"
-                    required
-                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
-                  />
-                  <div className="flex items-center gap-2 text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const detected = `${window.location.origin}/tc-auth/discord/callback`;
-                        setDiscordForm({ ...discordForm, redirect_uri: detected });
-                        toast.success('Updated Discord Redirect URI');
-                      }}
-                      className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
-                    >
-                      + Use Current Origin URI ({window.location.origin}/tc-auth/discord/callback)
-                    </button>
-                  </div>
-                </div>
+                <input
+                  type="text"
+                  value={discordForm.redirect_uri || ''}
+                  onChange={(e) => setDiscordForm({ ...discordForm, redirect_uri: e.target.value })}
+                  placeholder="http://localhost:3000/tc-auth/discord/callback"
+                  required
+                  className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
+                />
               </FormField>
 
               <div className="pt-3 flex justify-end">
                 <button
                   type="submit"
                   disabled={savingSection === 'discord'}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 active:scale-98"
                 >
                   <Save className="w-3.5 h-3.5" />
                   {savingSection === 'discord' ? 'Saving...' : 'Save Discord Config'}
@@ -611,7 +575,7 @@ export const ConfigPage: React.FC = () => {
               <Key className="w-4 h-4 text-purple-500" />
               5. JWT Token & Dual-Token Security Config
             </CardTitle>
-            <CardDescription>Endpoint: `POST /config/jwt` — Secret key, algorithm, session duration, and dual-token refresh settings.</CardDescription>
+            <CardDescription>Secret key, algorithm, session duration, and dual-token refresh parameters.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSaveJwt} className="space-y-4">
@@ -628,7 +592,7 @@ export const ConfigPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowSecrets({ ...showSecrets, jwtKey: !showSecrets.jwtKey })}
-                    className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-200"
+                    className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-200 cursor-pointer"
                   >
                     {showSecrets.jwtKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
@@ -650,14 +614,12 @@ export const ConfigPage: React.FC = () => {
                 </FormField>
 
                 <FormField label="Fallback Session Duration (Days)" required>
-                  <input
-                    type="number"
-                    value={jwtForm.session_duration_days ?? ''}
-                    onChange={(e) => setJwtForm({ ...jwtForm, session_duration_days: Number(e.target.value) })}
+                  <NumberInput
+                    value={jwtForm.session_duration_days ?? 7}
+                    onChange={(val) => setJwtForm({ ...jwtForm, session_duration_days: val })}
                     min={1}
                     max={365}
                     required
-                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
                   />
                 </FormField>
               </div>
@@ -683,23 +645,20 @@ export const ConfigPage: React.FC = () => {
                 {jwtForm.dual_token_mode && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-indigo-500/10">
                     <FormField label="Access Token Expire (Minutes)">
-                      <input
-                        type="number"
+                      <NumberInput
                         value={jwtForm.access_token_expire_minutes ?? 15}
-                        onChange={(e) => setJwtForm({ ...jwtForm, access_token_expire_minutes: Number(e.target.value) })}
+                        onChange={(val) => setJwtForm({ ...jwtForm, access_token_expire_minutes: val })}
                         min={1}
                         max={1440}
-                        className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
+                        step={5}
                       />
                     </FormField>
                     <FormField label="Refresh Token Expire (Days)">
-                      <input
-                        type="number"
+                      <NumberInput
                         value={jwtForm.refresh_token_expire_days ?? 7}
-                        onChange={(e) => setJwtForm({ ...jwtForm, refresh_token_expire_days: Number(e.target.value) })}
+                        onChange={(val) => setJwtForm({ ...jwtForm, refresh_token_expire_days: val })}
                         min={1}
                         max={90}
-                        className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
                       />
                     </FormField>
                   </div>
@@ -710,7 +669,7 @@ export const ConfigPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={savingSection === 'jwt'}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 active:scale-98"
                 >
                   <Save className="w-3.5 h-3.5" />
                   {savingSection === 'jwt' ? 'Saving...' : 'Save JWT Config'}

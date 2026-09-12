@@ -88,6 +88,44 @@ export const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ onGetStarted
       }
     },
     {
+      feature: 'OAuth Federation (Google, GitHub, Discord)',
+      category: 'Social SSO',
+      tcAuth: {
+        value: 'Native Google, GitHub & Discord Trio built-in',
+        status: 'superior',
+        note: 'Unified schema, zero vendor lock-in'
+      },
+      customCode: {
+        value: 'Requires building 3 distinct OAuth dance flows',
+        status: 'inferior',
+        note: 'High maintenance & bug surface'
+      },
+      authSaas: {
+        value: 'Tiered pricing per social identity connection',
+        status: 'neutral',
+        note: 'Per-connection surcharges'
+      }
+    },
+    {
+      feature: 'Dual Token Mode & Refresh Rotation',
+      category: 'Token Security',
+      tcAuth: {
+        value: '15m JWT Access + Rotating Refresh Token Handshake',
+        status: 'superior',
+        note: 'Silent client interceptor & RFC 6749 rotation'
+      },
+      customCode: {
+        value: 'Prone to token reuse vulnerabilities & race conditions',
+        status: 'inferior',
+        note: 'Complex Redis session locking required'
+      },
+      authSaas: {
+        value: 'Locked behind Enterprise tier paywalls',
+        status: 'neutral',
+        note: 'Expensive enterprise upgrade required'
+      }
+    },
+    {
       feature: 'Pricing & Active User (MAU) Limits',
       category: 'Economics',
       tcAuth: {

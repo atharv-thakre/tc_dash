@@ -50,6 +50,20 @@
   background: rgba(113, 113, 122, 0.6);
 }
 
+/* Eliminate native browser white counter change arrows (spinners) across all browsers */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  margin: 0 !important;
+  display: none !important;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+
 /* React Bits Custom Animations */
 @keyframes shiny-text {
   0%, 100% {

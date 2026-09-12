@@ -30,7 +30,7 @@ interface PlaygroundShowcaseProps {
 }
 
 export const PlaygroundShowcase: React.FC<PlaygroundShowcaseProps> = ({ onNavigateDocs }) => {
-  const [activeTab, setActiveTab] = useState<'otp' | 'jwt' | 'rest'>('otp');
+  const [activeTab, setActiveTab] = useState<'otp' | 'jwt' | 'rest' | 'dualtoken'>('otp');
 
   // --- OTP State ---
   const [otpEmail, setOtpEmail] = useState('developer@tcauth.dev');
@@ -48,6 +48,11 @@ export const PlaygroundShowcase: React.FC<PlaygroundShowcaseProps> = ({ onNaviga
   const [selectedEndpoint, setSelectedEndpoint] = useState<'login' | 'pulse' | 'me' | 'sessions'>('login');
   const [isProbing, setIsProbing] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // --- Dual Token Mode State ---
+  const [tokenCycle, setTokenCycle] = useState(1);
+  const [tokenSimState, setTokenSimState] = useState<'valid' | 'expired' | 'refreshed'>('valid');
+  const [isSimulatingRefresh, setIsSimulatingRefresh] = useState(false);
 
   const copyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -182,6 +187,7 @@ export const PlaygroundShowcase: React.FC<PlaygroundShowcaseProps> = ({ onNaviga
             { id: 'otp', label: '1. Email OTP', fullLabel: '1. Email OTP Simulator', icon: Mail, tag: 'Passwordless' },
             { id: 'jwt', label: '2. JWT Claims', fullLabel: '2. JWT Claims Inspector', icon: ShieldCheck, tag: 'Stateful' },
             { id: 'rest', label: '3. REST Probe', fullLabel: '3. Live REST Probe', icon: Terminal, tag: 'API Engine' },
+            { id: 'dualtoken', label: '4. Dual Tokens', fullLabel: '4. Dual Token Rotation', icon: RefreshCw, tag: 'RFC 6749' },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -685,6 +691,207 @@ export const PlaygroundShowcase: React.FC<PlaygroundShowcaseProps> = ({ onNaviga
                   <pre className="text-emerald-400 leading-relaxed">
                     {JSON.stringify(currentEndpointObj.response, null, 2)}
                   </pre>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 4: DUAL TOKEN MODE & REFRESH ROTATION SIMULATOR */}
+          {/* ========================================================================= */}
+          {activeTab === 'dualtoken' && (
+            <motion.div
+              key="dualtoken"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
+            >
+              {/* Top Banner */}
+              <div className="p-4 rounded-xl border border-cyan-500/30 bg-cyan-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-cyan-900/50 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shrink-0 mt-0.5">
+                    <RefreshCw className={`w-4 h-4 ${isSimulatingRefresh ? 'animate-spin' : ''}`} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-white">
+                        Dual Token Mode & Refresh Token Rotation
+                      </h4>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-900/60 text-cyan-300 border border-cyan-700/50">
+                        RFC 6749
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-300 mt-0.5">
+                      Short-lived access tokens (15m) paired with single-use database refresh tokens. When an access token expires, client interceptors seamlessly rotate the pair without user interruption.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold border flex items-center gap-1.5 ${
+                    tokenSimState === 'valid'
+                      ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-300'
+                      : tokenSimState === 'expired'
+                      ? 'bg-amber-950/80 border-amber-500/50 text-amber-300'
+                      : 'bg-cyan-950/80 border-cyan-500/50 text-cyan-300'
+                  }`}>
+                    <span className={`w-2 h-2 rounded-full ${
+                      tokenSimState === 'valid' ? 'bg-emerald-400' : tokenSimState === 'expired' ? 'bg-amber-400 animate-ping' : 'bg-cyan-400'
+                    }`} />
+                    {tokenSimState === 'valid' ? 'Access Token Active (15m)' : tokenSimState === 'expired' ? '401 Unauthorized (Expired)' : `Rotated (Cycle #${tokenCycle})`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Simulation Action Controls */}
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => {
+                    setTokenSimState('expired');
+                    toast.info('Simulated 15m access token expiry (HTTP 401 Unauthorized)');
+                  }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer flex items-center gap-2 border ${
+                    tokenSimState === 'expired'
+                      ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                      : 'bg-zinc-900 border-zinc-700/80 text-zinc-300 hover:text-white hover:border-zinc-600'
+                  }`}
+                >
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  1. Simulate 15m Expiry (Force 401)
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsSimulatingRefresh(true);
+                    setTimeout(() => {
+                      setTokenCycle((c) => c + 1);
+                      setTokenSimState('refreshed');
+                      setIsSimulatingRefresh(false);
+                      toast.success(`Silent refresh completed! Minted cycle #${tokenCycle + 1} with zero downtime.`);
+                    }, 400);
+                  }}
+                  disabled={isSimulatingRefresh}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer flex items-center gap-2 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white shadow-lg shadow-cyan-600/20 border border-cyan-400/30"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSimulatingRefresh ? 'animate-spin' : ''}`} />
+                  2. Execute Silent Refresh (POST /token/refresh)
+                </button>
+
+                <button
+                  onClick={() => {
+                    setTokenSimState('valid');
+                    setTokenCycle(1);
+                    toast.success('Tokens reset to initial state');
+                  }}
+                  className="px-3 py-2 rounded-xl text-xs font-mono text-zinc-400 hover:text-zinc-200 bg-zinc-900/60 border border-zinc-800 transition-colors cursor-pointer"
+                >
+                  Reset
+                </button>
+              </div>
+
+              {/* Dual Token Inspection Cards */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Access Token Box */}
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-indigo-400" />
+                      <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                        Short-Lived Access Token (JWT)
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold text-indigo-300 bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-800/80">
+                      Header: Bearer
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-zinc-400">
+                    Transmitted in every protected API request. Statelessly verified via HMAC-SHA256 signature in &lt; 0.2ms.
+                  </p>
+
+                  <div className="p-3 rounded-lg bg-zinc-950 border border-zinc-800/90 font-mono text-[11px] space-y-1.5">
+                    <div className="flex items-center justify-between text-zinc-400">
+                      <span>Header: Authorization</span>
+                      <span className={tokenSimState === 'expired' ? 'text-rose-400 font-bold' : 'text-emerald-400'}>
+                        {tokenSimState === 'expired' ? 'STATUS: EXPIRED (401)' : 'STATUS: VALID (200)'}
+                      </span>
+                    </div>
+                    <div className="p-2 rounded bg-zinc-900 border border-zinc-800 text-indigo-300 break-all select-all">
+                      eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c3JfOTA4MSIsImFpZCI6MSwiZXhwIjoxNzk4OTIxOTAwLCJyb2xlIjoiZGV2ZWxvcGVyIn0.sig_{tokenCycle * 849204}
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-1">
+                      <span>TTL: 15 Minutes</span>
+                      <span>Scope: read:profile, write:data</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Refresh Token Box */}
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Key className="w-4 h-4 text-emerald-400" />
+                      <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                        Rotating Refresh Token
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/80">
+                      Sliding 30d Window
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-zinc-400">
+                    Persisted with cryptographic hash in the database. Used exactly once to issue a fresh pair; old tokens are instantly invalidated.
+                  </p>
+
+                  <div className="p-3 rounded-lg bg-zinc-950 border border-zinc-800/90 font-mono text-[11px] space-y-1.5">
+                    <div className="flex items-center justify-between text-zinc-400">
+                      <span>Endpoint: POST /token/refresh</span>
+                      <span className="text-cyan-400 font-bold">Rotation Cycle #{tokenCycle}</span>
+                    </div>
+                    <div className="p-2 rounded bg-zinc-900 border border-zinc-800 text-emerald-300 break-all select-all">
+                      tc_ref_{tokenCycle * 44921}_918ab2ff10cc49de821_{tokenSimState === 'refreshed' ? 'rotated' : 'active'}
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-1">
+                      <span>Storage: Client Local/Cookie + DB Hash</span>
+                      <span>Revocation: Instant &lt; 1ms</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Code Snippet for Dual Token Handshake */}
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
+                <div className="px-4 py-2.5 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between">
+                  <span className="font-mono text-xs font-bold text-zinc-200">
+                    Python FastAPI + SQLAlchemy Implementation
+                  </span>
+                  <span className="text-[10px] font-mono text-zinc-400">auth/tokens.py</span>
+                </div>
+                <div className="p-4 font-mono text-xs text-emerald-400 overflow-x-auto">
+                  <pre>{`@app.post("/token/refresh")
+def refresh_tokens(payload: RefreshTokenRequest, db: Session = Depends(get_db)):
+    # 1. Atomically lookup refresh token hash and verify expiry
+    session = auth.service.verify_and_rotate_refresh_token(
+        db=db,
+        refresh_token=payload.refresh_token
+    )
+    if not session:
+        raise HTTPException(status_code=401, detail="Refresh token revoked or expired")
+
+    # 2. Issue fresh short-lived access JWT + new rotating refresh token
+    new_access_token = auth.service.create_access_token(user_id=session.account_id)
+    new_refresh_token = auth.service.create_refresh_token(db=db, session=session)
+
+    return {
+        "status": "success",
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer",
+        "expires_in": 900
+    }`}</pre>
                 </div>
               </div>
             </motion.div>

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { LOCAL_STORAGE_TOKEN_KEY } from '../services/apiClient';
+import { tokenStorage } from '../services/apiClient';
 import { authService } from '../services/auth';
 import { profileService } from '../services/profile';
 import {
@@ -24,12 +24,13 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   loginPassword: (input: LoginPasswordInput) => Promise<void>;
   loginOTP: (input: LoginOTPInput) => Promise<void>;
+  loginMagicLink: (input: { email: string; otp: string }) => Promise<void>;
   signupPassword: (input: SignupPasswordInput) => Promise<void>;
   signupOTP: (input: SignupOTPInput) => Promise<void>;
   forgotPassword: (input: ForgotPasswordInput) => Promise<void>;
   patchMe: (input: PatchMeInput) => Promise<void>;
   loginOAuth: (provider: 'google' | 'github' | 'discord') => Promise<void>;
-  refreshToken: () => Promise<void>;
+  refreshToken: () => Promise<{ access_token: string; refresh_token: string; token_type: string }>;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
   refetchMe: () => Promise<void>;
@@ -41,22 +42,24 @@ function getInitialToken(): string | null {
   try {
     const urlParams = new URLSearchParams(window.location.search);
     const tokenFromQuery = urlParams.get('access_token') || urlParams.get('token');
+    const refreshFromQuery = urlParams.get('refresh_token');
     if (tokenFromQuery) {
-      localStorage.setItem(LOCAL_STORAGE_TOKEN_KEY, tokenFromQuery);
+      tokenStorage.setTokens(tokenFromQuery, refreshFromQuery);
       return tokenFromQuery;
     }
     if (window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
       const tokenFromHash = hashParams.get('access_token') || hashParams.get('token');
+      const refreshFromHash = hashParams.get('refresh_token');
       if (tokenFromHash) {
-        localStorage.setItem(LOCAL_STORAGE_TOKEN_KEY, tokenFromHash);
+        tokenStorage.setTokens(tokenFromHash, refreshFromHash);
         return tokenFromHash;
       }
     }
   } catch {
     // ignore
   }
-  return localStorage.getItem(LOCAL_STORAGE_TOKEN_KEY);
+  return tokenStorage.getAccessToken();
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -68,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { apiMode } = useApiConfig();
 
   const clearAuthAndRedirectToLogin = () => {
-    localStorage.removeItem(LOCAL_STORAGE_TOKEN_KEY);
+    tokenStorage.clearTokens();
     setToken(null);
     setAccount(null);
     setSession(null);
@@ -126,6 +129,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await fetchMe();
   };
 
+  const loginMagicLink = async (input: { email: string; otp: string }) => {
+    const res = (await authService.verifyMagicLink('login', input)) as any;
+    if (res?.access_token) {
+      setToken(res.access_token);
+      setAccount(res.account);
+    }
+    await fetchMe();
+  };
+
   const signupPassword = async (input: SignupPasswordInput) => {
     const res = await authService.signupPassword(input);
     setToken(res.access_token);
@@ -161,8 +173,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshToken = async () => {
     const res = await authService.refreshToken();
-    setToken(res.access_token);
+    if (res?.access_token) {
+      setToken(res.access_token);
+    }
     await fetchMe();
+    return res;
   };
 
   const logout = async () => {
@@ -200,6 +215,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isSuperAdmin,
         loginPassword,
         loginOTP,
+        loginMagicLink,
         signupPassword,
         signupOTP,
         forgotPassword,

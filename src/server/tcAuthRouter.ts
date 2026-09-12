@@ -208,6 +208,29 @@ function createAuthTokenResponse(account: any) {
   return response;
 }
 
+// Helper: resolve frontend_url from body, query, Origin, Referer, or Host headers
+function resolveFrontendUrl(req: Request): string {
+  const bodyUrl = req.body?.frontend_url;
+  const queryUrl = req.query?.frontend_url as string;
+  const origin = req.headers.origin as string;
+  const referer = req.headers.referer as string;
+  const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'http';
+  const host = (req.headers['x-forwarded-host'] as string) || req.headers.host || 'localhost:3000';
+
+  if (bodyUrl && typeof bodyUrl === 'string' && bodyUrl.trim()) return bodyUrl.trim().replace(/\/+$/, '');
+  if (queryUrl && typeof queryUrl === 'string' && queryUrl.trim()) return queryUrl.trim().replace(/\/+$/, '');
+  if (origin && typeof origin === 'string' && origin.trim()) return origin.trim().replace(/\/+$/, '');
+  if (referer && typeof referer === 'string' && referer.trim()) {
+    try {
+      const parsed = new URL(referer);
+      return `${parsed.protocol}//${parsed.host}`.replace(/\/+$/, '');
+    } catch {
+      // ignore
+    }
+  }
+  return `${proto}://${host}`.replace(/\/+$/, '');
+}
+
 // ==========================================
 // 1. CONFIG & SYSTEM ROUTES
 // ==========================================
@@ -301,6 +324,7 @@ tcAuthRouter.post(['/send/email/otp/:purpose', '/send/email/otp/:purpose/'], (re
   }
 
   const { email } = req.body;
+  const frontendUrl = resolveFrontendUrl(req);
   const expiryTimestamp = Math.floor(Date.now() / 1000) + 300;
   const code = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -315,6 +339,209 @@ tcAuthRouter.post(['/send/email/otp/:purpose', '/send/email/otp/:purpose/'], (re
 
   res.json({
     expires_at: expiryTimestamp,
+    frontend_url: frontendUrl,
+  });
+});
+
+// POST /send/email/link/:purpose (Dedicated Magic Link Route)
+tcAuthRouter.post(['/send/email/link/:purpose', '/send/email/link/:purpose/'], (req: Request, res: Response) => {
+  const { purpose } = req.params;
+  const normalizedPurpose = (purpose || '').toLowerCase();
+
+  if (!ALLOWED_OTP_PURPOSES.includes(normalizedPurpose)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid email purpose. Allowed purposes are: signup, login, reset, verify',
+      detail: 'Invalid email purpose. Allowed purposes are: signup, login, reset, verify',
+    });
+  }
+
+  const { email } = req.body;
+  const frontendUrl = resolveFrontendUrl(req);
+  const expiryTimestamp = Math.floor(Date.now() / 1000) + 300;
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+  otpRecords.push({
+    id: otpRecords.length + 1,
+    identifier: email || 'user@example.com',
+    otp: code,
+    purpose: normalizedPurpose,
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 300000).toISOString(),
+  });
+
+  res.json({
+    expires_at: expiryTimestamp,
+    frontend_url: frontendUrl,
+  });
+});
+
+// GET /link/:purpose (Direct Browser Verification via Email Link Click)
+tcAuthRouter.get(['/link/:purpose', '/link/:purpose/'], (req: Request, res: Response) => {
+  const { purpose } = req.params;
+  const normalizedPurpose = (purpose || '').toLowerCase();
+  const email = (req.query.email as string) || '';
+  const otp = (req.query.otp as string) || '';
+  const frontendUrl = resolveFrontendUrl(req);
+
+  if (!ALLOWED_OTP_PURPOSES.includes(normalizedPurpose)) {
+    return res.redirect(307, `${frontendUrl}/magic-link/callback?error=${encodeURIComponent('Invalid magic link purpose')}`);
+  }
+
+  if (!email || !otp) {
+    return res.redirect(307, `${frontendUrl}/magic-link/callback?error=${encodeURIComponent('Missing required email or OTP token parameter')}`);
+  }
+
+  // Validate OTP in records or check length
+  const recordIndex = otpRecords.findIndex(
+    (r) =>
+      r.identifier.toLowerCase() === email.toLowerCase() &&
+      r.purpose.toLowerCase() === normalizedPurpose &&
+      r.otp === otp
+  );
+
+  const isValid = recordIndex !== -1 || otp.length === 6;
+
+  if (!isValid) {
+    return res.redirect(307, `${frontendUrl}/magic-link/callback?error=${encodeURIComponent('Invalid or expired Magic Link. Please request a new one.')}`);
+  }
+
+  // Burn OTP if purpose is 'login' or 'verify'
+  if (normalizedPurpose === 'login' || normalizedPurpose === 'verify') {
+    if (recordIndex !== -1) {
+      otpRecords.splice(recordIndex, 1);
+    }
+  }
+
+  if (normalizedPurpose === 'login') {
+    let account = accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
+    if (!account) {
+      account = {
+        id: accounts.length + 1,
+        uid: `tc_usr_${String(accounts.length + 1).padStart(2, '0')}`,
+        name: email.split('@')[0],
+        email: email,
+        handle: email.split('@')[0],
+        avatar_url: null,
+        phone: null,
+        role: 'user' as const,
+        status: 'active' as const,
+        has_password: false,
+        created_at: new Date().toISOString(),
+      };
+      accounts.push(account);
+    }
+    const tokenData = createAuthTokenResponse(account);
+    let redirectUrl = `${frontendUrl}/oauth/callback?access_token=${encodeURIComponent(tokenData.access_token)}`;
+    if (tokenData.refresh_token) {
+      redirectUrl += `&refresh_token=${encodeURIComponent(tokenData.refresh_token)}`;
+    }
+    return res.redirect(307, redirectUrl);
+  }
+
+  if (normalizedPurpose === 'verify') {
+    const account = accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
+    if (account) {
+      account.status = 'active';
+    }
+    return res.redirect(307, `${frontendUrl}/magic-link/callback?verified=true&email=${encodeURIComponent(email)}`);
+  }
+
+  if (normalizedPurpose === 'reset') {
+    return res.redirect(307, `${frontendUrl}/reset-password?email=${encodeURIComponent(email)}&otp=${encodeURIComponent(otp)}`);
+  }
+
+  if (normalizedPurpose === 'signup') {
+    return res.redirect(307, `${frontendUrl}/signup?email=${encodeURIComponent(email)}&otp=${encodeURIComponent(otp)}&verified=true`);
+  }
+
+  return res.redirect(307, `${frontendUrl}/magic-link/callback?error=${encodeURIComponent('Unknown action')}`);
+});
+
+// POST /link/:purpose (Programmatic Bot-Safe Magic Link Verification)
+tcAuthRouter.post(['/link/:purpose', '/link/:purpose/'], (req: Request, res: Response) => {
+  const { purpose } = req.params;
+  const normalizedPurpose = (purpose || '').toLowerCase();
+  const { email, otp } = req.body;
+
+  if (!ALLOWED_OTP_PURPOSES.includes(normalizedPurpose)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid purpose for magic link verification',
+      detail: 'Invalid purpose for magic link verification',
+    });
+  }
+
+  if (!email || !otp) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email and OTP are required',
+      detail: 'Email and OTP are required',
+    });
+  }
+
+  const recordIndex = otpRecords.findIndex(
+    (r) =>
+      r.identifier.toLowerCase() === email.toLowerCase() &&
+      r.purpose.toLowerCase() === normalizedPurpose &&
+      r.otp === otp
+  );
+
+  const isValid = recordIndex !== -1 || otp.length === 6;
+
+  if (!isValid) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or expired verification code',
+      detail: 'Invalid or expired verification code',
+    });
+  }
+
+  // Burn OTP if purpose is 'login' or 'verify'
+  if (normalizedPurpose === 'login' || normalizedPurpose === 'verify') {
+    if (recordIndex !== -1) {
+      otpRecords.splice(recordIndex, 1);
+    }
+  }
+
+  if (normalizedPurpose === 'login') {
+    let account = accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
+    if (!account) {
+      account = {
+        id: accounts.length + 1,
+        uid: `tc_usr_${String(accounts.length + 1).padStart(2, '0')}`,
+        name: email.split('@')[0],
+        email: email,
+        handle: email.split('@')[0],
+        avatar_url: null,
+        phone: null,
+        role: 'user' as const,
+        status: 'active' as const,
+        has_password: false,
+        created_at: new Date().toISOString(),
+      };
+      accounts.push(account);
+    }
+    return res.json(createAuthTokenResponse(account));
+  }
+
+  if (normalizedPurpose === 'verify') {
+    const account = accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
+    if (account) {
+      account.status = 'active';
+    }
+    return res.json({
+      success: true,
+      message: 'Email verified successfully',
+      email,
+    });
+  }
+
+  return res.json({
+    success: true,
+    message: 'Verification valid',
+    email,
+    otp,
   });
 });
 
@@ -421,6 +648,15 @@ tcAuthRouter.post(['/forgot/password', '/forgot/password/'], (req: Request, res:
 
 // POST /token/refresh
 tcAuthRouter.post(['/token/refresh', '/token/refresh/'], (req: Request, res: Response) => {
+  if (!systemConfig.jwt.dual_token_mode) {
+    return res.status(400).json({
+      success: false,
+      error: 'dual_token_mode_disabled',
+      message: 'Dual-token authentication mode is disabled in system configuration.',
+      detail: 'Switch token_mode to dual in JWT settings to enable refresh tokens and rotation.',
+    });
+  }
+
   const { refresh_token } = req.body;
   if (!refresh_token || typeof refresh_token !== 'string') {
     return res.status(401).json({
@@ -430,7 +666,7 @@ tcAuthRouter.post(['/token/refresh', '/token/refresh/'], (req: Request, res: Res
     });
   }
 
-  // Accept valid refresh tokens
+  // Accept valid refresh tokens and rotate
   const newAccessToken = `tc_jwt_token_${Date.now()}`;
   const newRefreshToken = `tc_jwt_ref_${Date.now()}`;
 
@@ -448,8 +684,15 @@ tcAuthRouter.post(['/token/refresh', '/token/refresh/'], (req: Request, res: Res
 function handleOAuthLogin(provider: string, req: Request, res: Response) {
   const frontendUrl = (req.query.frontend_url as string) || (req.headers.referer ? new URL(req.headers.referer).origin : 'http://localhost:3000');
   const token = `tc_jwt_token_${provider}_${Date.now()}`;
+  let redirectUrl = `${frontendUrl}/oauth/callback?access_token=${token}&provider=${provider}`;
+
+  if (systemConfig.jwt.dual_token_mode) {
+    const refreshToken = `tc_jwt_ref_${provider}_${Date.now()}`;
+    redirectUrl += `&refresh_token=${refreshToken}`;
+  }
+
   // Direct redirect simulating successful OAuth callback flow
-  return res.redirect(307, `${frontendUrl}/oauth/callback?access_token=${token}&provider=${provider}`);
+  return res.redirect(307, redirectUrl);
 }
 
 tcAuthRouter.get(['/google/login', '/google/login/'], (req: Request, res: Response) => handleOAuthLogin('google', req, res));

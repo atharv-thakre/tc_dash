@@ -129,10 +129,31 @@ export interface StandardActionResponse {
 
 export interface SendEmailOTPInput {
   email: string;
+  frontend_url?: string;
 }
 
 export interface SendEmailOTPResponse {
   expires_at: string | number;
+}
+
+export interface SendMagicLinkInput {
+  email: string;
+  frontend_url?: string;
+}
+
+export interface SendMagicLinkResponse {
+  expires_at: string | number;
+}
+
+export interface VerifyMagicLinkInput {
+  email: string;
+  otp: string;
+}
+
+export interface VerifyEmailMagicLinkResponse {
+  success: boolean;
+  message: string;
+  email?: string;
 }
 
 export interface LoginPasswordInput {

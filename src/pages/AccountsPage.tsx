@@ -147,7 +147,7 @@ export const AccountsPage: React.FC = () => {
       if (editingAccount) {
         // PATCH /account/
         await accountsService.updateAccount({
-          account_id: editingAccount.id,
+          account_id: String(editingAccount.id),
           name: data.name,
           email: data.email,
           handle: data.handle,
@@ -385,7 +385,7 @@ export const AccountsPage: React.FC = () => {
               <Edit2 className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setDeletingAccountId(acc.id)}
+              onClick={() => setDeletingAccountId(String(acc.id))}
               className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 transition-colors cursor-pointer"
               title="Delete Account"
             >

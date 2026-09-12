@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Database, Shield, Mail, KeyRound, Globe, ArrowRight, CheckCircle2, Lock, Cpu, Server, Layers, Zap } from 'lucide-react';
+import { Database, Shield, Mail, KeyRound, Globe, ArrowRight, CheckCircle2, Lock, Cpu, Server, Layers, Zap, RefreshCw } from 'lucide-react';
 import { BorderBeam } from './BorderBeam';
 import { Magnet } from './Magnet';
 
@@ -28,10 +28,10 @@ export const ArchitectureFlow: React.FC = () => {
       badge: 'HTTP / REST',
       description:
         'Dispatches standard Bearer JWT tokens in Authorization headers or HTTP-only cookies to your backend endpoints.',
-      codeSnippet: `// Frontend Token Dispatch
+      codeSnippet: `// Frontend Token Dispatch & Auto-Refresh
 fetch("https://api.domain.com/tc-auth/me", {
   headers: {
-    "Authorization": \`Bearer \${token}\`
+    "Authorization": \`Bearer \${accessToken}\`
   }
 });`,
       metrics: [
@@ -111,23 +111,42 @@ auth.otp.create_otp(
     },
     oauth: {
       id: 'oauth',
-      title: 'OAuth 2.0 & OIDC',
-      category: 'Google & GitHub Federation',
+      title: 'OAuth 2.0 Trio',
+      category: 'Google, GitHub & Discord',
       icon: <KeyRound className="w-5 h-5 text-amber-400" />,
       badge: 'Social SSO',
       description:
-        'Secure authorization code exchange for single-click login with Google and GitHub with unified account merging.',
-      codeSnippet: `# Handle OAuth 2.0 callback and token link
+        'Secure authorization code exchange for single-click login with Google, GitHub, and Discord with PKCE and unified account merging.',
+      codeSnippet: `# Handle OAuth 2.0 callback for Google, GitHub, or Discord
 account = auth.service.handle_oauth_callback(
-    provider="google",
+    provider="discord", # or "google" | "github"
     code=auth_code,
-    redirect_uri="https://app.com/callback"
+    redirect_uri="https://app.com/discord/callback"
 )`,
       metrics: [
-        { label: 'Supported Identity', value: 'Google, GitHub' },
+        { label: 'Supported Identity', value: 'Google, GitHub, Discord' },
         { label: 'Security Model', value: 'OAuth 2.0 + PKCE' },
       ],
       accentColor: 'from-amber-500/20 to-amber-950/40',
+    },
+    dualtokens: {
+      id: 'dualtokens',
+      title: 'Dual Token Engine',
+      category: 'Refresh Token Rotation',
+      icon: <RefreshCw className="w-5 h-5 text-cyan-400" />,
+      badge: 'Silent Refresh',
+      description:
+        'Pairs short-lived 15m JWT access tokens with rotating database-backed refresh tokens, automatically renewing expired sessions.',
+      codeSnippet: `# Rotate refresh token and issue fresh access token
+tokens = auth.service.refresh_token(
+    refresh_token="tc_ref_98a7c2e401b..."
+)
+# Returns: { "access_token": "...", "refresh_token": "..." }`,
+      metrics: [
+        { label: 'Access Token Life', value: '15 Minutes' },
+        { label: 'Rotation Policy', value: 'Single-Use Refresh' },
+      ],
+      accentColor: 'from-cyan-500/20 to-cyan-950/40',
     },
   };
 
@@ -136,7 +155,7 @@ account = auth.service.handle_oauth_callback(
   return (
     <div className="space-y-6">
       {/* Node Flow Pipeline Tabs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
         {Object.values(nodes).map((node) => {
           const isActive = node.id === activeNodeId;
           return (
