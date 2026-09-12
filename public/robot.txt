@@ -1,0 +1,53 @@
+# CodeSena Auth - Robots Policy
+# https://auth.codesena.me/
+
+# Allow all legitimate crawlers to discover the public CodeSena Auth site.
+User-agent: *
+Allow: /
+
+# AI/search crawlers
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: meta-externalagent
+Allow: /
+
+# AI-readable documentation
+# Start here:
+# https://auth.codesena.me/llms.txt
+#
+# Full documentation:
+# https://auth.codesena.me/llms-full.txt
+
+# Public site map
+Sitemap: https://auth.codesena.me/sitemap.xml
