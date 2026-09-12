@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "CodeSena tc_auth Engine",
+  "name_for_model": "tc_auth_engine",
+  "description_for_human": "Authentication, authorization, session management, and OAuth integration suite for modern web and backend applications.",
+  "description_for_model": "Authentication and authorization API providing JWT dual-token issuing, session validation, OAuth2 integrations (Google, GitHub, Discord), OTP passwordless sign-in, user RBAC role verification, and admin management endpoints.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://auth.codesena.me/openapi.json"
+  },
+  "logo_url": "https://auth.codesena.me/favicon.svg",
+  "contact_email": "support@codesena.me",
+  "legal_info_url": "https://auth.codesena.me/docs"
+}

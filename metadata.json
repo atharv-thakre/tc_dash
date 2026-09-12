@@ -1,6 +1,6 @@
 {
   "name": "tc-auth Dashboard",
-  "description": "Production-quality authentication management and admin dashboard for the tc-auth system.",
+  "description": "Production-ready, AI-indexable authentication & authorization platform and management suite for FastAPI and SQLAlchemy. Features dual-token JWT rotation, session hashing, RBAC dependencies, OAuth2 (Google/GitHub/Discord), SMTP OTP, and complete machine-readable LLM documentation.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -6,9 +6,62 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="shortcut icon" href="/favicon.svg" />
     <title>tc-auth Dashboard</title>
-    <meta name="description" content="Production-quality authentication management and admin dashboard for the tc-auth system." />
+    <meta name="description" content="Production-ready, AI-indexable authentication & authorization platform and management suite for FastAPI and SQLAlchemy. Features dual-token JWT rotation, session hashing, RBAC dependencies, OAuth2 (Google/GitHub/Discord), SMTP OTP, and complete machine-readable LLM documentation." />
+    <meta name="keywords" content="FastAPI authentication, SQLAlchemy auth, JWT dual-token, RBAC FastAPI, OAuth2 Google GitHub Discord, LLM documentation, Python auth library, tc-auth" />
     <meta property="og:title" content="tc-auth Dashboard" />
-    <meta property="og:description" content="Production-quality authentication management and admin dashboard for the tc-auth system." />
+    <meta property="og:description" content="Production-ready, AI-indexable authentication & authorization platform and management suite for FastAPI and SQLAlchemy. Features dual-token JWT rotation, session hashing, RBAC dependencies, OAuth2 (Google/GitHub/Discord), SMTP OTP, and complete machine-readable LLM documentation." />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+
+    <!-- AI / LLM Discovery and Crawling Links -->
+    <link rel="alternate" type="text/plain" href="/llms.txt" title="LLM Context Index" />
+    <link rel="alternate" type="text/plain" href="/llms-full.txt" title="Full Consolidated LLM Documentation" />
+    <link rel="alternate" type="application/json" href="/openapi.json" title="OpenAPI 3.0 API Specification" />
+    <link rel="alternate" type="application/json" href="/.well-known/ai-plugin.json" title="AI Plugin Manifest" />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" title="Sitemap" />
+
+    <!-- Structured Data (JSON-LD) for AI Search Engines & Crawlers -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://auth.codesena.me/#software",
+          "name": "tc_auth",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Cross-platform",
+          "author": {
+            "@type": "Person",
+            "name": "Atharv Thakre"
+          },
+          "description": "Production-grade authentication & authorization library for FastAPI and SQLAlchemy with JWT dual-token, RBAC, OAuth2, and OTP support.",
+          "softwareVersion": "1.5.2",
+          "license": "https://opensource.org/licenses/MIT",
+          "url": "https://auth.codesena.me"
+        },
+        {
+          "@type": "WebAPI",
+          "@id": "https://auth.codesena.me/#webapi",
+          "name": "tc_auth REST API",
+          "description": "REST endpoints for user signup, login, session inspection, token refresh, OTP verification, and OAuth management.",
+          "documentation": "https://auth.codesena.me/docs",
+          "termsOfService": "https://auth.codesena.me/docs",
+          "provider": {
+            "@type": "Organization",
+            "name": "CodeSena",
+            "url": "https://auth.codesena.me"
+          }
+        },
+        {
+          "@type": "DigitalDocument",
+          "@id": "https://auth.codesena.me/llms.txt",
+          "name": "LLM Machine-Readable Index",
+          "encodingFormat": "text/plain",
+          "url": "https://auth.codesena.me/llms.txt"
+        }
+      ]
+    }
+    </script>
   </head>
   <body class="bg-zinc-950 text-zinc-100 antialiased selection:bg-indigo-500 selection:text-white">
     <div id="root"></div>

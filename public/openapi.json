@@ -1,0 +1,245 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CodeSena tc_auth REST & AI Documentation API",
+    "description": "Production-grade authentication, authorization, OAuth2, session management, and machine-readable documentation endpoints for AI agents and developers.",
+    "version": "1.5.2",
+    "contact": {
+      "name": "CodeSena Auth Engineering",
+      "email": "support@codesena.me",
+      "url": "https://auth.codesena.me"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://auth.codesena.me",
+      "description": "Production Server"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Local Development Server"
+    }
+  ],
+  "paths": {
+    "/llms.txt": {
+      "get": {
+        "summary": "LLM Documentation Index",
+        "description": "Returns the machine-readable manifest and index of all architecture, API, and SDK documentation files for LLMs and AI crawlers.",
+        "responses": {
+          "200": {
+            "description": "Plaintext markdown formatted llms.txt index",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/llms-full.txt": {
+      "get": {
+        "summary": "Consolidated Full LLM Documentation",
+        "description": "Returns the complete, single-file aggregated documentation for full-context ingestion into LLM context windows.",
+        "responses": {
+          "200": {
+            "description": "Plaintext full markdown documentation bundle",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/tree": {
+      "get": {
+        "summary": "Get Document File System Tree",
+        "description": "Returns a recursive JSON tree of all available technical documentation, SDK files, and REST API guides.",
+        "responses": {
+          "200": {
+            "description": "Tree hierarchy and statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tree": { "type": "array", "items": { "type": "object" } },
+                    "stats": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/file": {
+      "get": {
+        "summary": "Get Document File Content",
+        "description": "Returns the raw text content, word count, line count, and metadata for a specific documentation path.",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Relative path to file, e.g. sdk/connect/connect.py or llm/ARCHITECTURE.md"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document content and metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "path": { "type": "string" },
+                    "content": { "type": "string" },
+                    "lines": { "type": "integer" },
+                    "words": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/search": {
+      "get": {
+        "summary": "Search Documentation",
+        "description": "Performs keyword search across all SDK code and markdown guides.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Search query keyword"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search matches with line numbers and snippets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "query": { "type": "string" },
+                    "results": { "type": "array", "items": { "type": "object" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tc-auth/login": {
+      "post": {
+        "summary": "User Login",
+        "description": "Authenticates user via identifier (email/handle/phone) and password. Returns access and refresh JWTs.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["identifier", "password"],
+                "properties": {
+                  "identifier": { "type": "string", "example": "admin@tcauth.dev" },
+                  "password": { "type": "string", "example": "Password123!" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Successful login with access_token and refresh_token" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/tc-auth/signup": {
+      "post": {
+        "summary": "User Registration",
+        "description": "Creates a new user account with unique email and handle.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password", "handle", "name"],
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" },
+                  "handle": { "type": "string" },
+                  "name": { "type": "string" },
+                  "phone": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Account created successfully" },
+          "400": { "description": "Validation error or identifier already taken" }
+        }
+      }
+    },
+    "/tc-auth/token/refresh": {
+      "post": {
+        "summary": "Refresh Access Token",
+        "description": "Exchanges a valid refresh token for a newly signed access token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refresh_token"],
+                "properties": {
+                  "refresh_token": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "New access_token provided" },
+          "401": { "description": "Invalid or expired refresh token" }
+        }
+      }
+    },
+    "/tc-auth/me": {
+      "get": {
+        "summary": "Current User Profile",
+        "description": "Retrieves profile and role for the authenticated user session.",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Current user account details" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

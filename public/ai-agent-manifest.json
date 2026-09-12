@@ -1,0 +1,27 @@
+{
+  "system": "CodeSena tc_auth",
+  "version": "1.5.2",
+  "author": "Atharv Thakre",
+  "description": "Comprehensive FastAPI + SQLAlchemy production authentication engine with RBAC, Dual-Token JWT, OAuth2, and SMTP OTP.",
+  "machine_readable_documentation": {
+    "llms_index": "https://auth.codesena.me/llms.txt",
+    "llms_full": "https://auth.codesena.me/llms-full.txt",
+    "sitemap": "https://auth.codesena.me/sitemap.xml",
+    "robots": "https://auth.codesena.me/robots.txt",
+    "openapi_spec": "https://auth.codesena.me/openapi.json",
+    "plugin_manifest": "https://auth.codesena.me/.well-known/ai-plugin.json",
+    "documents_api_tree": "https://auth.codesena.me/api/documents/tree",
+    "documents_api_search": "https://auth.codesena.me/api/documents/search?q={query}"
+  },
+  "preferred_context_order": [
+    "/llms.txt",
+    "/documents/llm/README.md",
+    "/documents/llm/ARCHITECTURE.md",
+    "/documents/llm/SDK_REFERENCE.md",
+    "/documents/llm/API_REFERENCE.md",
+    "/documents/llm/DEPENDENCIES_AND_RBAC.md",
+    "/documents/llm/OAUTH_INTEGRATION.md",
+    "/documents/llm/ERRORS_AND_TROUBLESHOOTING.md",
+    "/documents/llm/COOKBOOK_AND_EXAMPLES.md"
+  ]
+}
