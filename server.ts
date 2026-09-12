@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import { tcAuthRouter } from "./src/server/tcAuthRouter.js";
+import { documentsRouter } from "./src/server/documentsRouter.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +17,29 @@ async function startServer() {
   // Health endpoint for cloud health checks
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // Dynamic visual file system and documents API
+  app.use("/api/documents", documentsRouter);
+
+  // Statically mount documents directory at /documents (preserves raw file access)
+  app.use("/documents", express.static(path.resolve(process.cwd(), "documents")));
+
+  // Mount LLM reference files at root endpoints (/llm.txt, /llms.txt, /llm-full.txt, /llms-full.txt)
+  const serveLlmFile = (filePath: string) => (req: express.Request, res: express.Response) => {
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.sendFile(filePath);
+  };
+
+  const llmTxtPath = path.resolve(process.cwd(), "documents/llms.txt");
+  const llmFullTxtPath = path.resolve(process.cwd(), "documents/llms-full.txt");
+  const readmePath = path.resolve(process.cwd(), "README.md");
+
+  app.get(["/llm.txt", "/llms.txt", "/llm", "/llms"], serveLlmFile(llmTxtPath));
+  app.get(["/llm-full.txt", "/llms-full.txt", "/llm-full", "/llms-full"], serveLlmFile(llmFullTxtPath));
+  app.get(["/README.md", "/readme.md", "/README", "/readme"], (req, res) => {
+    res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+    res.sendFile(readmePath);
   });
 
   // Mount standardized tc-auth backend API routes (supports both /tc-auth prefix and root paths)

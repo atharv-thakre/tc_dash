@@ -1,0 +1,58 @@
+# tc_auth — AI Documentation Manifest
+
+> `tc_auth` is a modular, production-ready authentication and authorization library for FastAPI applications with SQLAlchemy. It features decoupled initialization (`connect.py` / `run.py`), dual-token JWT architecture (access + rotating refresh tokens), server-side session hashing, password policy enforcement, Google/GitHub/Discord OAuth 2.0 with safe linking, SMTP OTP & Magic Links, and role/status-based dependency injection guards.
+
+## Hosted Documentation Root
+Base URL: `https://auth.codesena.me/documents`
+
+## Core Architectural Rules for AI Agents
+- Always instantiate database and Auth in `connect.py` (`auth = Auth(engine=engine)`).
+- Never pass `app` into `Auth` in modular apps to avoid circular imports.
+- In feature routers, import `auth` from `connect` and use `auth.deps.get_current_user`, `auth.role.require("role")`, `auth.status.require("active")`.
+- Mount routes in `run.py` via `auth.include_routes(app, prefix="/tc-auth")`.
+- Pass access tokens in `Authorization: Bearer <access_token>` headers.
+- Pass refresh tokens only in `POST /tc-auth/token/refresh`.
+
+## AI / LLM Specialized Documentation (`/documents/llm/`)
+- [AI Master Index](https://auth.codesena.me/documents/llm/README.md) (Local: `README.md`): AI navigation hub, prompt cheat sheet, and security guarantees.
+- [Architecture & Concepts](https://auth.codesena.me/documents/llm/ARCHITECTURE.md) (Local: `ARCHITECTURE.md`): Decoupled pattern, token lifecycle, session hashing, DB models.
+- [Python SDK Reference](https://auth.codesena.me/documents/llm/SDK_REFERENCE.md) (Local: `SDK_REFERENCE.md`): Full class, service method signatures, arguments, and return types.
+- [HTTP REST API Reference](https://auth.codesena.me/documents/llm/API_REFERENCE.md) (Local: `API_REFERENCE.md`): Endpoints, JSON schemas, 200 responses, error codes.
+- [FastAPI Dependencies & RBAC](https://auth.codesena.me/documents/llm/DEPENDENCIES_AND_RBAC.md) (Local: `DEPENDENCIES_AND_RBAC.md`): `auth.deps`, `auth.role`, `auth.status` injection patterns.
+- [OAuth & Provider Linking](https://auth.codesena.me/documents/llm/OAUTH_INTEGRATION.md) (Local: `OAUTH_INTEGRATION.md`): Google, GitHub, Discord setup, auto-linking, lockout prevention.
+- [Errors & Troubleshooting](https://auth.codesena.me/documents/llm/ERRORS_AND_TROUBLESHOOTING.md) (Local: `ERRORS_AND_TROUBLESHOOTING.md`): `AuthError` exception catalog, HTTP codes, debugging guide.
+- [Cookbook & Practical Recipes](https://auth.codesena.me/documents/llm/COOKBOOK_AND_EXAMPLES.md) (Local: `COOKBOOK_AND_EXAMPLES.md`): Full FastAPI backend code, Axios token refresh client.
+- [Full Consolidated Reference](https://auth.codesena.me/documents/llm/llms-full.txt) (Local: `llms-full.txt`): Complete consolidated documentation in a single file.
+
+## HTTP REST API Endpoints Reference (`/documents/api/`)
+- [API Routes Index](https://auth.codesena.me/documents/api/ROUTES_INDEX.md): Index of all REST endpoints.
+- [Auth & Magic Link Routes](https://auth.codesena.me/documents/api/login_route.md): Signup, Login, Passwordless OTP, Magic Links, Forgot Password, Refresh Token.
+- [Profile & Session Routes](https://auth.codesena.me/documents/api/account_route.md): `/me`, Update Profile, Password Update, Logout, Logout-all, OAuth Link/Unlink.
+- [OAuth Provider Routes](https://auth.codesena.me/documents/api/oauth_route.md): Google, GitHub, Discord `/login` and `/callback` redirect endpoints.
+- [OAuth Frontend Integration](https://auth.codesena.me/documents/api/oauth_integration.md): Frontend handling for redirects, popups, and callback URLs.
+- [Frontend Token Usage Guide](https://auth.codesena.me/documents/api/token_usage_guide.md): Universal guide for Single & Dual-token modes with Axios interceptors.
+- [Dashboard & Config Routes](https://auth.codesena.me/documents/api/dashboard_route.md): Health pulse probe, dynamic config loading & live updates.
+- [Admin Account Routes](https://auth.codesena.me/documents/api/dash_account.md): Superadmin account CRUD, search, and pagination.
+- [Admin Session Routes](https://auth.codesena.me/documents/api/dash_session.md): Superadmin session inspection and token cleanup.
+- [Admin OTP Routes](https://auth.codesena.me/documents/api/dash_otp.md): Superadmin OTP inspection, creation, and revocation.
+- [Admin OAuth Link Routes](https://auth.codesena.me/documents/api/dash_oauth.md): Superadmin OAuth account link management.
+
+## Python SDK Service Guides & Code (`/documents/sdk/`)
+- [Connect & Auth Setup](https://auth.codesena.me/documents/sdk/connect/connect.md) ([Code](https://auth.codesena.me/documents/sdk/connect/connect.py)): Engine initialization and service configuration.
+- [FastAPI Run & App Wiring](https://auth.codesena.me/documents/sdk/connect/run.md) ([Code](https://auth.codesena.me/documents/sdk/connect/run.py)): App mounting, middleware, exception handler, and route registration.
+- [Account Service](https://auth.codesena.me/documents/sdk/account/account.md) ([Code](https://auth.codesena.me/documents/sdk/account/account.py)): Programmatic account CRUD and password hashing.
+- [Auth Service](https://auth.codesena.me/documents/sdk/auth/auth.md) ([Code](https://auth.codesena.me/documents/sdk/auth/auth.py)): Programmatic signup, login, password updates, and token refreshes.
+- [Auth Dependencies](https://auth.codesena.me/documents/sdk/dependency/auth_deps.md) ([Code](https://auth.codesena.me/documents/sdk/dependency/auth_deps.py)): FastAPI route dependency injection for user and session context.
+- [Role Dependencies](https://auth.codesena.me/documents/sdk/dependency/role_deps.md) ([Code](https://auth.codesena.me/documents/sdk/dependency/role_deps.py)): RBAC guards (`require`, `allow`, `block`).
+- [Status Dependencies](https://auth.codesena.me/documents/sdk/dependency/status_deps.md) ([Code](https://auth.codesena.me/documents/sdk/dependency/status_deps.py)): Account status guards (`require`, `allow`, `block`).
+- [Email Service](https://auth.codesena.me/documents/sdk/email/email.md) ([Code](https://auth.codesena.me/documents/sdk/email/email.py)): SMTP email delivery and OTP dispatch.
+- [Magic Link Email Guide](https://auth.codesena.me/documents/sdk/email/magic_link.md) ([Code](https://auth.codesena.me/documents/sdk/email/magic_link.py)): Magic Link generation and email templates.
+- [Get User Service](https://auth.codesena.me/documents/sdk/get_user/get_user.md) ([Code](https://auth.codesena.me/documents/sdk/get_user/get_user.py)): Account lookups by ID, UID, email, handle, and phone.
+- [JWT Handler](https://auth.codesena.me/documents/sdk/jwt/jwt.md) ([Code](https://auth.codesena.me/documents/sdk/jwt/jwt.py)): JWT creation, decoding, validation, and token lifetime settings.
+- [OAuth Service](https://auth.codesena.me/documents/sdk/oauth/oauth.md) ([Code](https://auth.codesena.me/documents/sdk/oauth/oauth.py)): Social login handling and multi-provider linking.
+- [Google OAuth](https://auth.codesena.me/documents/sdk/oauth/google.md) ([Code](https://auth.codesena.me/documents/sdk/oauth/google.py)): Google OAuth 2.0 / OpenID Connect adapter.
+- [GitHub OAuth](https://auth.codesena.me/documents/sdk/oauth/github.md) ([Code](https://auth.codesena.me/documents/sdk/oauth/github.py)): GitHub OAuth adapter.
+- [Discord OAuth](https://auth.codesena.me/documents/sdk/oauth/discord.md) ([Code](https://auth.codesena.me/documents/sdk/oauth/discord.py)): Discord OAuth adapter.
+- [OTP Service](https://auth.codesena.me/documents/sdk/otp/otp.md) ([Code](https://auth.codesena.me/documents/sdk/otp/otp.py)): 6-digit numeric OTP generation, verification, and revocation.
+- [Session Service](https://auth.codesena.me/documents/sdk/session/session.md) ([Code](https://auth.codesena.me/documents/sdk/session/session.py)): Database session creation, verification, and logout everywhere.
+- [Dashboard Service](https://auth.codesena.me/documents/sdk/dashboard/dashboard.md) ([Code](https://auth.codesena.me/documents/sdk/dashboard/dashboard.py)): System statistics and table counts.

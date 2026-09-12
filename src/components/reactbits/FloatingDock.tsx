@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'motion/react';
-import { KeyRound, FileCode2, BookOpen, Sparkles, LogIn, Server, Github } from 'lucide-react';
+import { FolderTree, FileCode2, BookOpen, Sparkles, LogIn, Server, Github } from 'lucide-react';
 import { ApiConfigModal } from '../common/ApiConfigModal';
 
 interface DockItemProps {
@@ -157,16 +157,14 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
       hoverBorderClass: 'hover:border-amber-500/60 hover:bg-amber-500/10 text-zinc-300 hover:text-amber-300',
     },
     {
-      title: 'Explore Overview',
-      icon: <KeyRound className="w-4 h-4 text-rose-400" />,
-      onClick: () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      },
-      textColorClass: 'text-rose-300',
-      borderColorClass: 'border-rose-500/50',
-      dotColorClass: 'bg-rose-400',
-      shadowClass: 'shadow-rose-950/60',
-      hoverBorderClass: 'hover:border-rose-500/60 hover:bg-rose-500/10 text-zinc-300 hover:text-rose-300',
+      title: 'Explore',
+      icon: <FolderTree className="w-4 h-4 text-indigo-400" />,
+      onClick: () => onNavigate('/documents'),
+      textColorClass: 'text-indigo-300',
+      borderColorClass: 'border-indigo-500/50',
+      dotColorClass: 'bg-indigo-400',
+      shadowClass: 'shadow-indigo-950/60',
+      hoverBorderClass: 'hover:border-indigo-500/60 hover:bg-indigo-500/10 text-zinc-300 hover:text-indigo-300',
     },
     {
       title: 'REST API Docs',
@@ -210,13 +208,13 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
     },
     {
       title: 'Sign In to Console',
-      icon: <LogIn className="w-4 h-4 text-indigo-400" />,
+      icon: <LogIn className="w-4 h-4 text-red-400" />,
       onClick: () => onNavigate('/login'),
-      textColorClass: 'text-indigo-300',
-      borderColorClass: 'border-indigo-500/50',
-      dotColorClass: 'bg-indigo-400',
-      shadowClass: 'shadow-indigo-950/60',
-      hoverBorderClass: 'hover:border-indigo-500/60 hover:bg-indigo-500/10 text-zinc-300 hover:text-indigo-300',
+      textColorClass: 'text-red-400',
+      borderColorClass: 'border-red-500/50',
+      dotColorClass: 'bg-red-400',
+      shadowClass: 'shadow-red-950/60',
+      hoverBorderClass: 'hover:border-red-500/60 hover:bg-red-500/10 text-zinc-300 hover:text-red-400',
     },
   ];
 

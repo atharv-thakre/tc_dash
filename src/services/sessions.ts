@@ -9,7 +9,7 @@ import {
 } from './apiClient';
 import { INITIAL_SESSIONS } from './mockData';
 
-const DEMO_SESSIONS_KEY = 'tc_auth_demo_sessions';
+const DEMO_SESSIONS_KEY = 'tc_auth_demo_sessions_v2';
 
 function getDemoSessions(): SessionRecord[] {
   const data = localStorage.getItem(DEMO_SESSIONS_KEY);
@@ -18,8 +18,14 @@ function getDemoSessions(): SessionRecord[] {
     return INITIAL_SESSIONS;
   }
   try {
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    if (!Array.isArray(parsed) || parsed.length < INITIAL_SESSIONS.length) {
+      localStorage.setItem(DEMO_SESSIONS_KEY, JSON.stringify(INITIAL_SESSIONS));
+      return INITIAL_SESSIONS;
+    }
+    return parsed;
   } catch {
+    localStorage.setItem(DEMO_SESSIONS_KEY, JSON.stringify(INITIAL_SESSIONS));
     return INITIAL_SESSIONS;
   }
 }

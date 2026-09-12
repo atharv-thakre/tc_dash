@@ -9,7 +9,7 @@ import {
 } from './apiClient';
 import { INITIAL_OAUTH_LINKS } from './mockData';
 
-const DEMO_OAUTH_LINKS_KEY = 'tc_auth_demo_oauth_links';
+const DEMO_OAUTH_LINKS_KEY = 'tc_auth_demo_oauth_links_v2';
 
 function getDemoOAuthLinks(): OAuthLink[] {
   const data = localStorage.getItem(DEMO_OAUTH_LINKS_KEY);
@@ -18,8 +18,14 @@ function getDemoOAuthLinks(): OAuthLink[] {
     return INITIAL_OAUTH_LINKS;
   }
   try {
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    if (!Array.isArray(parsed) || parsed.length < INITIAL_OAUTH_LINKS.length) {
+      localStorage.setItem(DEMO_OAUTH_LINKS_KEY, JSON.stringify(INITIAL_OAUTH_LINKS));
+      return INITIAL_OAUTH_LINKS;
+    }
+    return parsed;
   } catch {
+    localStorage.setItem(DEMO_OAUTH_LINKS_KEY, JSON.stringify(INITIAL_OAUTH_LINKS));
     return INITIAL_OAUTH_LINKS;
   }
 }

@@ -9,7 +9,7 @@ import {
 } from './apiClient';
 import { INITIAL_OTP_RECORDS } from './mockData';
 
-const DEMO_OTP_RECORDS_KEY = 'tc_auth_demo_otp_records';
+const DEMO_OTP_RECORDS_KEY = 'tc_auth_demo_otp_records_v2';
 
 function getDemoOTPRecords(): OTPRecord[] {
   const data = localStorage.getItem(DEMO_OTP_RECORDS_KEY);
@@ -18,8 +18,14 @@ function getDemoOTPRecords(): OTPRecord[] {
     return INITIAL_OTP_RECORDS;
   }
   try {
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    if (!Array.isArray(parsed) || parsed.length < INITIAL_OTP_RECORDS.length) {
+      localStorage.setItem(DEMO_OTP_RECORDS_KEY, JSON.stringify(INITIAL_OTP_RECORDS));
+      return INITIAL_OTP_RECORDS;
+    }
+    return parsed;
   } catch {
+    localStorage.setItem(DEMO_OTP_RECORDS_KEY, JSON.stringify(INITIAL_OTP_RECORDS));
     return INITIAL_OTP_RECORDS;
   }
 }

@@ -25,7 +25,7 @@ import { getDemoConfig } from './config';
 import { INITIAL_ACCOUNTS } from './mockData';
 
 // Local storage key for demo accounts
-const DEMO_ACCOUNTS_KEY = 'tc_auth_demo_accounts';
+const DEMO_ACCOUNTS_KEY = 'tc_auth_demo_accounts_v2';
 
 export function getDemoAccounts() {
   const data = localStorage.getItem(DEMO_ACCOUNTS_KEY);
@@ -34,8 +34,19 @@ export function getDemoAccounts() {
     return INITIAL_ACCOUNTS;
   }
   try {
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    // If cache has old data or fewer accounts, refresh from INITIAL_ACCOUNTS
+    if (
+      !Array.isArray(parsed) ||
+      parsed.length < INITIAL_ACCOUNTS.length ||
+      parsed.some((a: any) => a.name === 'Sarah Chen' || a.name === 'Alex Rivera')
+    ) {
+      localStorage.setItem(DEMO_ACCOUNTS_KEY, JSON.stringify(INITIAL_ACCOUNTS));
+      return INITIAL_ACCOUNTS;
+    }
+    return parsed;
   } catch {
+    localStorage.setItem(DEMO_ACCOUNTS_KEY, JSON.stringify(INITIAL_ACCOUNTS));
     return INITIAL_ACCOUNTS;
   }
 }

@@ -20,6 +20,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { MagicLinkCallbackPage } from './pages/MagicLinkCallbackPage';
 import { DocsPage } from './pages/DocsPage';
+import { DocumentsExplorerPage } from './pages/DocumentsExplorerPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -100,6 +101,7 @@ function AppRouter() {
 
   // Helper to parse docs section & docId from currentPath
   const isDocs = currentPath.startsWith('/docs');
+  const isDocuments = currentPath.startsWith('/documents');
   let docsSection = 'lib';
   let docsDocId = 'setup';
 
@@ -109,15 +111,22 @@ function AppRouter() {
     if (parts.length >= 3) docsDocId = parts[2];
   }
 
-  // If docs are accessed without login, allow full public browsing inside the AppLayout or direct view
-  if (isDocs && !account) {
+  // If documents or docs are accessed without login, allow full public browsing inside AppLayout
+  if ((isDocuments || isDocs) && !account) {
     return (
       <AppLayout activePath={currentPath} onNavigate={handleNavigate}>
-        <DocsPage
-          section={docsSection}
-          docId={docsDocId}
-          onNavigate={handleNavigate}
-        />
+        {isDocuments ? (
+          <DocumentsExplorerPage
+            initialPath={currentPath}
+            onNavigate={handleNavigate}
+          />
+        ) : (
+          <DocsPage
+            section={docsSection}
+            docId={docsDocId}
+            onNavigate={handleNavigate}
+          />
+        )}
       </AppLayout>
     );
   }
@@ -156,6 +165,12 @@ function AppRouter() {
         </ProtectedRoute>
       )}
       {currentPath === '/profile' && <ProfilePage onNavigate={handleNavigate} />}
+      {isDocuments && (
+        <DocumentsExplorerPage
+          initialPath={currentPath}
+          onNavigate={handleNavigate}
+        />
+      )}
       {isDocs && (
         <DocsPage
           section={docsSection}

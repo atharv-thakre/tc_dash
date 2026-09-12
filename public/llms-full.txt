@@ -1,0 +1,316 @@
+# tc_auth — Complete AI/LLM Context, API/SDK Specification & Hosted Links
+
+================================================================================
+0. HOSTED DOCUMENTATION MATRIX & STATIC MOUNT URLS
+================================================================================
+Base Documentation URL: https://auth.codesena.me/documents
+
+1. AI / LLM Specialized Documentation Directory (/documents/llm/):
+   - https://auth.codesena.me/documents/llm/README.md -> Master AI index, cheat sheet, security guarantees.
+   - https://auth.codesena.me/documents/llm/llms.txt -> Standardized LLM manifest.
+   - https://auth.codesena.me/documents/llm/llms-full.txt -> Full consolidated context file.
+   - https://auth.codesena.me/documents/llm/ARCHITECTURE.md -> Decoupled pattern, token lifecycle, DB models, session hashing.
+   - https://auth.codesena.me/documents/llm/SDK_REFERENCE.md -> Complete Python SDK method signatures and return types.
+   - https://auth.codesena.me/documents/llm/API_REFERENCE.md -> Complete HTTP REST API endpoint reference and JSON schemas.
+   - https://auth.codesena.me/documents/llm/DEPENDENCIES_AND_RBAC.md -> FastAPI dependency injection, role & status access control.
+   - https://auth.codesena.me/documents/llm/OAUTH_INTEGRATION.md -> Google, GitHub, and Discord OAuth 2.0 / OIDC setup & linking.
+   - https://auth.codesena.me/documents/llm/ERRORS_AND_TROUBLESHOOTING.md -> Complete exception hierarchy and HTTP status codes.
+   - https://auth.codesena.me/documents/llm/COOKBOOK_AND_EXAMPLES.md -> Production FastAPI backend and frontend Axios interceptor recipes.
+
+2. REST API Documentation Directory (/documents/api/):
+   - https://auth.codesena.me/documents/api/ROUTES_INDEX.md -> Index of all mounted API routes.
+   - https://auth.codesena.me/documents/api/login_route.md -> Signup, Login, Passwordless OTP, Magic Links, Forgot Password, Refresh Token.
+   - https://auth.codesena.me/documents/api/account_route.md -> /me, Update Profile, Password Update, Logout, Logout-all, OAuth Link/Unlink.
+   - https://auth.codesena.me/documents/api/oauth_route.md -> Google, GitHub, Discord /login and /callback redirect endpoints.
+   - https://auth.codesena.me/documents/api/oauth_integration.md -> Frontend client guide for OAuth redirects and popups.
+   - https://auth.codesena.me/documents/api/token_usage_guide.md -> Universal Single & Dual-token frontend guide with Axios queue.
+   - https://auth.codesena.me/documents/api/dashboard_route.md -> System pulse healthcheck, live config inspection and updates.
+   - https://auth.codesena.me/documents/api/dash_account.md -> Superadmin account CRUD, query, and pagination.
+   - https://auth.codesena.me/documents/api/dash_session.md -> Superadmin session inspection, cleanup, and clearing.
+   - https://auth.codesena.me/documents/api/dash_otp.md -> Superadmin OTP inspection, creation, revocation, and cleanup.
+   - https://auth.codesena.me/documents/api/dash_oauth.md -> Superadmin OAuth link management.
+   - https://auth.codesena.me/documents/api/system_route.md -> System route placeholder.
+
+3. Python SDK Service Guides & Source Files (/documents/sdk/):
+   - https://auth.codesena.me/documents/sdk/connect/connect.md & connect.py -> Database Engine & Auth setup.
+   - https://auth.codesena.me/documents/sdk/connect/run.md & run.py -> FastAPI application assembly & route mounting.
+   - https://auth.codesena.me/documents/sdk/account/account.md & account.py -> AccountService guide.
+   - https://auth.codesena.me/documents/sdk/auth/auth.md & auth.py -> AuthService guide.
+   - https://auth.codesena.me/documents/sdk/dependency/auth_deps.md & auth_deps.py -> AuthDeps injection guide.
+   - https://auth.codesena.me/documents/sdk/dependency/role_deps.md & role_deps.py -> RoleDeps RBAC guide.
+   - https://auth.codesena.me/documents/sdk/dependency/status_deps.md & status_deps.py -> StatusDeps account status guide.
+   - https://auth.codesena.me/documents/sdk/email/email.md & email.py -> EmailService SMTP & OTP email guide.
+   - https://auth.codesena.me/documents/sdk/email/magic_link.md & magic_link.py -> Magic Link email delivery guide.
+   - https://auth.codesena.me/documents/sdk/get_user/get_user.md & get_user.py -> GetUserService account lookup guide.
+   - https://auth.codesena.me/documents/sdk/jwt/jwt.md & jwt.py -> jwt_handler token signing & validation guide.
+   - https://auth.codesena.me/documents/sdk/oauth/oauth.md & oauth.py -> OAuthService multi-provider linking guide.
+   - https://auth.codesena.me/documents/sdk/oauth/google.md & google.py -> Google OAuth provider adapter.
+   - https://auth.codesena.me/documents/sdk/oauth/github.md & github.py -> GitHub OAuth provider adapter.
+   - https://auth.codesena.me/documents/sdk/oauth/discord.md & discord.py -> Discord OAuth provider adapter.
+   - https://auth.codesena.me/documents/sdk/otp/otp.md & otp.py -> OTPService numeric code guide.
+   - https://auth.codesena.me/documents/sdk/session/session.md & session.py -> SessionService database session guide.
+   - https://auth.codesena.me/documents/sdk/dashboard/dashboard.md & dashboard.py -> DashboardService system counts guide.
+
+================================================================================
+1. EXECUTIVE SUMMARY & CORE ARCHITECTURAL PRINCIPLES
+================================================================================
+`tc_auth` is a production-ready, modular authentication and authorization library designed specifically for FastAPI applications with SQLAlchemy.
+
+Core Architectural Guidelines for AI / Developers:
+1. DECOUPLED PATTERN: Separate database and Auth instantiation (`connect.py`) from FastAPI application lifecycle (`run.py`). This guarantees zero circular import errors across modular feature routers (`routers/*.py`).
+2. DUAL-TOKEN ARCHITECTURE: Supports both Single-Token mode (long-lived access token) and Dual-Token mode (15-minute access token + 7-day rotating refresh token).
+3. CRYPTOGRAPHIC SESSION HASHING: Raw session tokens are never stored in plaintext in the database. Only `sha256(session_token)` is saved. This allows instant token revocation on logout/ban while securing the DB against token theft.
+4. DUAL-LAYER REQUEST VERIFICATION: Every protected API request validates both the cryptographically signed JWT signature/expiry AND the database session validity.
+5. PASSWORD POLICY ENGINE: Automatically enforces minimum 6 characters with >=1 uppercase letter, >=1 lowercase letter, and >=1 numeric digit.
+6. OAUTH & LOCKOUT PREVENTION: Google, GitHub, and Discord OAuth 2.0 / OIDC integrations with auto-linking for verified emails and lockout prevention during unlinking.
+7. MAGIC LINKS & EMAIL OTPS: Dispatches both a one-click Magic Link button and a 6-digit numeric fallback OTP code in every email. Supports direct browser GET verification and bot-safe headless POST verification.
+8. ROLE & STATUS GUARDS: FastAPI dependency injection for fine-grained Role-Based Access Control (`auth.role`) and Account Status gates (`auth.status`).
+9. ZERO NULL JSON RESPONSES: All endpoints and service methods return structured, predictable JSON envelopes.
+
+================================================================================
+2. DATABASE MODELS & SCHEMA SPECIFICATION (SQLAlchemy)
+================================================================================
+
+1. Account (`accounts` table):
+   - `id`: Integer, Primary Key, Autoincrement
+   - `uid`: UUID, Unique, Non-nullable, Indexed, default=uuid.uuid4
+   - `name`: String(100), Nullable
+   - `handle`: String(30), Unique, Nullable, Indexed
+   - `email`: String(255), Unique, Nullable, Indexed
+   - `phone`: String(20), Unique, Nullable, Indexed
+   - `password_hash`: Text, Nullable (Argon2 / Bcrypt)
+   - `avatar_url`: Text, Nullable
+   - `role`: String(50), default="user", Non-nullable
+   - `status`: String(100), default="active", Nullable
+   - `created_at`: TIMESTAMP, Server Default=now()
+   - `updated_at`: TIMESTAMP, Server Default=now(), onupdate=now()
+   - Relationships: `sessions` (cascade="all, delete-orphan"), `oauth_accounts` (cascade="all, delete-orphan")
+
+2. Session (`sessions` table):
+   - `id`: Integer, Primary Key, Autoincrement
+   - `account_id`: Integer, Foreign Key (accounts.id, ondelete="CASCADE"), Indexed
+   - `token_hash`: Text, Unique, Non-nullable -> sha256(raw_session_token)
+   - `ip_address`: String(45), Nullable
+   - `user_agent`: Text, Nullable
+   - `expires_at`: TIMESTAMP, Non-nullable
+   - `created_at`: TIMESTAMP, Server Default=now()
+
+3. OTP (`otps` table):
+   - `id`: Integer, Primary Key, Autoincrement
+   - `identifier`: String(255), Non-nullable, Indexed (email or phone)
+   - `purpose`: String(100), Non-nullable ("signup", "login", "reset", "verify")
+   - `code_hash`: Text, Non-nullable -> sha256(6_digit_code)
+   - `attempts`: Integer, default=0, Non-nullable
+   - `expires_at`: TIMESTAMP, Non-nullable
+   - `created_at`: TIMESTAMP, Server Default=now()
+
+4. OAuthAccount (`oauth_accounts` table):
+   - `id`: Integer, Primary Key, Autoincrement
+   - `account_id`: Integer, Foreign Key (accounts.id, ondelete="CASCADE"), Indexed
+   - `provider`: String(30), Non-nullable, Indexed ("google", "github", "discord")
+   - `provider_user_id`: String(255), Non-nullable, Indexed
+   - `created_at`: TIMESTAMP, Server Default=now()
+   - Unique Constraints: `(provider, provider_user_id)` and `(account_id, provider)`
+
+================================================================================
+3. COMPLETE PYTHON SDK REFERENCE
+================================================================================
+
+Main Class: `Auth(engine: Engine, app: FastAPI | None = None)`
+- `auth.init() -> None`: Creates all database tables.
+- `auth.destroy() -> None`: Drops all database tables.
+- `auth.include_routes(app: FastAPI, prefix: str = "/tc-auth") -> None`: Mounts exception handler, session middleware, and all routes.
+
+Attached Services on `auth`:
+--------------------------------------------------------------------------------
+1. `auth.account` (`AccountService`):
+   - `create_user(name=None, email=None, handle=None, phone=None, password=None, avatar_url=None, role="user", status="active") -> dict`
+   - `update_user(account_id: int, **kwargs) -> dict` (Updates name, email, handle, phone, avatar_url)
+   - `super_update(account_id: int, **kwargs) -> dict` (Admin update for role, status, password, profile)
+   - `update_password(account_id: int, password: str) -> dict` (Validates and hashes password)
+   - `delete_user(account_id: int) -> dict` (Cascades delete to sessions, OTPs, OAuth links)
+   - `get_all(page: int = 1, limit: int = 10) -> dict` -> `{"total": int, "page": int, "limit": int, "accounts": list[dict]}`
+   - `query(field: str, value: str) -> dict` (Search by id, email, handle, phone, uid)
+
+2. `auth.service` (`AuthService`):
+   - `signup(name, email, password, handle=None, ip_address=None, user_agent=None) -> dict` -> standard auth token payload
+   - `login(identifier, password, ip_address=None, user_agent=None) -> dict` -> standard auth token payload
+   - `login_magic_link(email, otp, ip_address=None, user_agent=None) -> dict` -> burns OTP & returns auth token payload
+   - `verify_email_magic_link(email, otp) -> dict` -> burns OTP & sets account status="active"
+   - `refresh_tokens(refresh_token: str) -> dict` -> `{"access_token": str, "refresh_token": str, "token_type": "bearer"}`
+
+3. `auth.session` (`SessionService`):
+   - `create_session(account_id: int, ip_address=None, user_agent=None, expires_days=7) -> dict`
+   - `by_id(session_id: int) -> dict | None`
+   - `destroy_session(session_id: int) -> dict` -> `{"success": True, "message": "..."}`
+   - `destroy_all(account_id: int) -> dict` -> `{"success": True, "message": "..."}`
+   - `cleanup_expired() -> dict`
+   - `clear_all() -> dict`
+
+4. `auth.otp` (`OTPService`):
+   - `create(identifier: str, purpose: str, expires_minutes=10) -> dict` -> `{"otp": "123456", "expires_at": ...}`
+   - `check(identifier: str, purpose: str, otp: str) -> bool` (Validates OTP without burning)
+   - `verify(identifier: str, purpose: str, otp: str) -> bool` (Validates and BURNS/deletes OTP)
+   - `revoke(identifier: str, purpose: str | None = None) -> dict`
+
+5. `auth.get_user` (`GetUserService`):
+   - `by_id(account_id: int) -> dict`
+   - `by_uid(uid: str | UUID) -> dict`
+   - `by_email(email: str) -> dict`
+   - `by_handle(handle: str) -> dict`
+   - `by_phone(phone: str) -> dict`
+   - `by_identifier(identifier: str) -> dict` (Auto-detects field type)
+
+6. `auth.oauth` (`OAuthService`):
+   - `authenticate_or_register(provider, provider_user_id, email=None, name=None, avatar_url=None, link_account_id=None) -> dict`
+   - `link_account(account_id: int, provider: str, provider_user_id: str) -> dict`
+   - `unlink_account(account_id: int, provider: str, enforce_active_auth=True) -> dict`
+   - `get_account_links(account_id: int) -> list[dict]`
+
+7. `auth.jwt` (`jwt_handler` module):
+   - `config(secret_key, algorithm="HS256", session_duration_days=7, dual_token_mode=False, access_token_expire_minutes=15, refresh_token_expire_days=7)`
+   - `create_access_token(data: dict) -> str`
+   - `create_refresh_token(data: dict) -> str`
+   - `verify_token(token: str) -> dict`
+
+8. `auth.email` (`EmailService`):
+   - `config(host, port, username, password, sender, sender_name="Auth", use_tls=True)`
+   - `send_email(to: str, subject: str, html_content: str) -> dict`
+   - `send_otp(email: str, purpose: str, frontend_url=None, backend_url=None) -> dict`
+   - `send_magic_link(email: str, purpose: str, frontend_url=None, backend_url=None) -> dict`
+   - Shortcut helpers: `send_login_otp()`, `send_verify_email()`, `send_reset_otp()`, `send_signup_otp()`
+
+9. `auth.google` / `auth.github` / `auth.discord`:
+   - `config(client_id, client_secret, redirect_uri)`
+   - `login(request: Request, frontend_url: str) -> RedirectResponse`
+   - `callback(request: Request, **meta) -> RedirectResponse`
+
+================================================================================
+4. FASTAPI DEPENDENCY INJECTION & RBAC
+================================================================================
+
+Core Auth Dependencies:
+- `auth.deps.get_current_user`: Injects composite `{"account": dict, "session": dict, "payload": dict}`
+- `auth.deps.get_current_account`: Injects user's `Account` dictionary
+- `auth.deps.get_current_session`: Injects active `Session` dictionary
+- `auth.deps.get_current_payload`: Injects decoded JWT claims (`aid`, `sid`, `type`, `exp`)
+
+Role-Based Access Control (`auth.role`):
+- `auth.role.require("admin")`: Enforces exact role match. Raises `PermissionDeniedError` (HTTP 403).
+- `auth.role.allow("admin", "manager")`: Allows any of the specified roles.
+- `auth.role.block("banned", "guest")`: Blocks listed roles.
+
+Status Access Control (`auth.status`):
+- `auth.status.require("active")`: Enforces exact status. Raises `AccountStatusError` (HTTP 403).
+- `auth.status.allow("active", "trial")`: Allows specified statuses.
+- `auth.status.block("suspended", "banned")`: Blocks specified statuses.
+
+================================================================================
+5. COMPLETE HTTP REST API SPECIFICATION (Mounted under /tc-auth)
+================================================================================
+
+Authentication Routes:
+- `POST /tc-auth/signup/password`:
+  Body: `{"name": "...", "email": "...", "password": "...", "handle": "..."}`
+  Response (200): `{"access_token": "...", "refresh_token": "...", "token_type": "bearer", "account": {...}}`
+- `POST /tc-auth/signup/otp`:
+  Body: `{"name": "...", "email": "...", "password": "...", "otp": "123456", "handle": "..."}`
+  Response (200): Standard Auth Token Response
+- `POST /tc-auth/login/password`:
+  Body: `{"identifier": "email_or_handle_or_phone", "password": "..."}`
+  Response (200): Standard Auth Token Response
+- `POST /tc-auth/login/otp`:
+  Body: `{"email": "...", "otp": "123456"}`
+  Response (200): Standard Auth Token Response
+- `POST /tc-auth/forgot/password`:
+  Body: `{"email": "...", "otp": "123456", "password": "NewPassword123"}`
+  Response (200): Standard Auth Token Response
+- `POST /tc-auth/token/refresh`:
+  Body: `{"refresh_token": "..."}`
+  Response (200): `{"access_token": "...", "refresh_token": "...", "token_type": "bearer"}`
+
+Email & Magic Link Routes:
+- `POST /tc-auth/send/email/otp/{purpose}` (purpose: signup, login, reset, verify):
+  Body: `{"email": "...", "frontend_url": "..."}`
+  Response (200): `{"expires_at": 1735689600}`
+- `POST /tc-auth/send/email/link/{purpose}`:
+  Body: `{"email": "...", "frontend_url": "..."}`
+  Response (200): `{"expires_at": 1735689600}`
+- `GET /tc-auth/link/{purpose}?email=...&otp=...&frontend_url=...`:
+  Browser click redirect endpoint (HTTP 307 to frontend callback router).
+- `POST /tc-auth/link/{purpose}`:
+  Bot-safe programmatic verification. Body: `{"email": "...", "otp": "123456"}`.
+
+Protected Profile Routes (Requires Authorization: Bearer <access_token>):
+- `GET /tc-auth/me`: Returns `{"account": {...}, "session": {...}, "payload": {...}}`
+- `PATCH /tc-auth/me`: Body: `{"name"?, "handle"?, "avatar_url"?, "phone"?}` -> Updated account
+- `PUT /tc-auth/update/password`: Body: `{"password": "..."}` -> `{"success": true, "message": "..."}`
+- `POST /tc-auth/logout`: Revokes active session -> `{"success": true, "message": "..."}`
+- `POST /tc-auth/logout-all`: Revokes all sessions for user -> `{"success": true, "message": "..."}`
+- `GET /tc-auth/account/oauth/links`: Lists connected providers -> `[{"id": 1, "provider": "google", ...}]`
+- `POST /tc-auth/account/oauth/link/{provider}?frontend_url=...`: Initiates OAuth linking flow
+- `DELETE /tc-auth/account/oauth/{provider}`: Unlinks provider (fails if no other auth method exists)
+
+OAuth Routes:
+- `GET /tc-auth/{provider}/login?frontend_url=...`: Redirects to provider consent screen
+- `GET /tc-auth/{provider}/callback`: Exchanges code & redirects to `{frontend_url}/oauth/callback?access_token=...`
+
+Admin Routes (Requires role: superadmin):
+- `GET /tc-auth/config/pulse`: Public system healthcheck
+- `GET /tc-auth/config/load/`: Inspects active runtime configurations
+- `GET /tc-auth/config/counts`: Returns total counts for accounts, sessions, OTPs, OAuth links
+- `GET /tc-auth/account/?page=1&limit=10`: Paginated account list
+- `GET /tc-auth/account/query?field=email&value=...`: Query single account
+- `POST /tc-auth/account/`: Super-create account
+- `PATCH /tc-auth/account/`: Super-update account
+- `DELETE /tc-auth/account/`: Super-delete account
+- `DELETE /tc-auth/session/cleanup`: Deletes expired sessions
+- `DELETE /tc-auth/otp/cleanup`: Deletes expired OTP records
+
+================================================================================
+6. COMPLETE EXCEPTION HIERARCHY & HTTP CODES
+================================================================================
+All exceptions inherit from `AuthError`:
+- 400 Bad Request:
+  - `AuthError` (Base)
+  - `InvalidFieldError` (Invalid field in payload)
+  - `InvalidEmailPurposeError` (Purpose not in signup, login, reset, verify)
+  - `WeakPasswordError` (Fails 6+ chars, uppercase, lowercase, numeric rules)
+  - `InvalidConfigError` (Misconfigured service parameters)
+  - `OAuthCallbackError` (Provider error or missing code/state)
+- 401 Unauthorized:
+  - `InvalidCredentialsError` (Incorrect identifier or password)
+  - `InvalidTokenError` (Expired, invalid, or malformed JWT token)
+  - `OTPInvalidError` (Wrong OTP code supplied)
+  - `OTPExpiredError` (OTP code has expired)
+- 403 Forbidden:
+  - `PermissionDeniedError` (User does not match required role)
+  - `AccountStatusError` (User account status is prohibited)
+- 404 Not Found:
+  - `UserNotFoundError` (No user found by ID, UID, email, handle, or phone)
+  - `SessionNotFoundError` (Session ID not found in database)
+  - `OTPNotFoundError` (No active OTP record found)
+  - `OAuthLinkNotFoundError` (OAuth provider link not found)
+- 409 Conflict:
+  - `EmailAlreadyExistsError` (Email is already registered)
+  - `HandleAlreadyExistsError` (Handle is already registered)
+  - `PhoneAlreadyExistsError` (Phone is already registered)
+  - `OAuthAlreadyLinkedError` (OAuth provider is already linked to an account)
+- 500 Internal Server Error:
+  - `DatabaseError` (Database query execution failure)
+  - `EmailNotConfiguredError` (SMTP service called without configuration)
+  - `OAuthNotConfiguredError` (OAuth provider called without credentials)
+- 502 Bad Gateway:
+  - `EmailSendError` (SMTP server rejected connection or delivery)
+
+Standard Intercepted Error JSON Response Format:
+```json
+{
+  "status": false,
+  "error": {
+    "code": "InvalidCredentialsError",
+    "message": "Invalid credentials",
+    "details": null
+  }
+}
+```

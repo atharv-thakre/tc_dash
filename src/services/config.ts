@@ -10,7 +10,7 @@ import {
 } from './apiClient';
 import { INITIAL_CONFIG } from './mockData';
 
-const DEMO_CONFIG_KEY = 'tc_auth_demo_config';
+const DEMO_CONFIG_KEY = 'tc_auth_demo_config_v2';
 
 export function getDemoConfig(): ConfigPayload {
   const data = localStorage.getItem(DEMO_CONFIG_KEY);
@@ -19,8 +19,14 @@ export function getDemoConfig(): ConfigPayload {
     return INITIAL_CONFIG;
   }
   try {
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    if (!parsed || parsed.email?.sender !== 'noreply@codesena.me') {
+      localStorage.setItem(DEMO_CONFIG_KEY, JSON.stringify(INITIAL_CONFIG));
+      return INITIAL_CONFIG;
+    }
+    return parsed;
   } catch {
+    localStorage.setItem(DEMO_CONFIG_KEY, JSON.stringify(INITIAL_CONFIG));
     return INITIAL_CONFIG;
   }
 }
