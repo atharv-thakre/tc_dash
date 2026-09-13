@@ -251,6 +251,9 @@ All successful authentication flows below create a session record:
 `ip_address` and `user_agent` are optional. If omitted, their value is
 `None`.
 
+### Cookie Delivery via `response`
+All authentication methods accept an optional `response: fastapi.Response | None = None` parameter. When passed, if `cookie_mode=True` is enabled, the methods automatically attach secure `Set-Cookie` headers to `response` while still returning the standard dictionary payload.
+
 ------------------------------------------------------------------------
 
 # Quick Usage

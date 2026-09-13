@@ -70,6 +70,17 @@ Response:
     "secret_key": "...",
     "algorithm": "HS256",
     "session_duration_days": 7
+  },
+  "cookie": {
+    "cookie_mode": false,
+    "access_cookie_name": "access_token",
+    "refresh_cookie_name": "refresh_token",
+    "path": "/",
+    "domain": null,
+    "secure": false,
+    "httponly": true,
+    "samesite": "lax",
+    "max_age": null
   }
 }
 ```
@@ -239,4 +250,44 @@ Response:
   "message": "JWT configured successfully"
 }
 ```
+
+## POST `/cookie`
+
+Configures the Cookie Subsystem parameters. Requires superadmin access.
+
+Body:
+
+```json
+{
+  "cookie_mode": true,
+  "access_cookie_name": "access_token",
+  "refresh_cookie_name": "refresh_token",
+  "path": "/",
+  "domain": null,
+  "secure": true,
+  "httponly": true,
+  "samesite": "lax",
+  "max_age": null
+}
+```
+
+- `cookie_mode` (optional): Boolean. Toggle Cookie Mode on or off (default: `false`).
+- `access_cookie_name` (optional): String. Name of access token cookie (default: `"access_token"`).
+- `refresh_cookie_name` (optional): String. Name of refresh token cookie (default: `"refresh_token"`).
+- `path` (optional): String. Cookie path (default: `"/"`).
+- `domain` (optional): String or `null`. Cookie domain scope.
+- `secure` (optional): Boolean. HTTPS requirement flag (default: `false`).
+- `httponly` (optional): Boolean. XSS mitigation flag (default: `true`).
+- `samesite` (optional): String. SameSite policy (`"lax"`, `"strict"`, `"none"`).
+- `max_age` (optional): Integer or `null`. Custom cookie lifetime in seconds.
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Cookie configured successfully"
+}
+```
+
 

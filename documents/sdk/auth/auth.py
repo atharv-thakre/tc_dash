@@ -55,6 +55,10 @@ account: dict = auth.get_user.by_email(
 #         User-Agent of the client.
 #         Defaults to None if not provided.
 #
+#     response (fastapi.Response, optional):
+#         Outgoing HTTP response. If provided and cookie_mode=True,
+#         attaches secure Set-Cookie headers.
+#
 # NOTE:
 #     When using this method inside a web application,
 #     ip_address and user_agent should be obtained from the
@@ -76,6 +80,7 @@ auth.service.create_login_response(
     account=account,
     ip_address="127.0.0.1",
     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    response=None,
 )
 
 

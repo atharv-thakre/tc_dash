@@ -4,7 +4,7 @@ Base path: `/tc-auth`
 
 Authentication:
 
-- All routes in this group require `Authorization: Bearer <access_token>`.
+- All routes in this group require authentication via either `Authorization: Bearer <access_token>` header or `access_token` HttpOnly cookie.
 - The token must belong to a valid session and account.
 
 Route behavior:
@@ -12,8 +12,8 @@ Route behavior:
 - `GET /me` returns the current account, current session, and token payload.
 - `PATCH /me` updates the current account profile fields.
 - `PUT /update/password` updates the current account password.
-- `POST /logout` deletes the current session.
-- `POST /logout-all` deletes every session for the current account.
+- `POST /logout` deletes the current session. (When `cookie_mode=True`, also clears `access_token` and `refresh_token` session cookies with `Max-Age=0`).
+- `POST /logout-all` deletes every session for the current account. (When `cookie_mode=True`, also clears session cookies).
 
 Common response shapes:
 

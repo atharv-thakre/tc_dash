@@ -62,6 +62,7 @@ export const LIBRARY_DOCS: DocItem[] = [
   "auth.google": "Google OpenID Connect flow handlers (config, login redirect, callback)",
   "auth.github": "GitHub OAuth flow handlers with private primary email resolution",
   "auth.jwt": "JWT key configuration, signing, and signature verification",
+  "auth.cookie": "Cookie Configuration Subsystem for secure HttpOnly session cookies (access_token, refresh_token)",
   "auth.deps": "FastAPI dependency injection for route authentication (get_current, get_current_account)",
   "auth.role": "Role-Based Access Control (RBAC) route dependencies (require, allow, block)",
   "auth.status": "Account Status authorization dependencies (require, allow, block)",
@@ -1585,6 +1586,122 @@ async def refresh_tokens(payload: RefreshRequest):
         raise HTTPException(status_code=401, detail=str(e))`
   },
   {
+    id: 'sdk-cookie',
+    title: 'Cookie Configuration Subsystem',
+    module: 'auth.cookie',
+    description: 'Configure and manage HttpOnly session cookies for browser-based authentication, dual-mode token extraction, and cross-site cookie policies.',
+    overview: `The \`auth.cookie\` subsystem allows backend services to toggle between \`localStorage\` mode (default, Bearer tokens) and \`Cookie\` mode (secure, HttpOnly session cookies). When \`cookie_mode=True\`, authentication and refresh endpoints automatically attach secure \`Set-Cookie\` headers on responses, and dependencies seamlessly extract tokens from cookies when the \`Authorization\` header is absent.`,
+    content: `# Cookie Configuration Subsystem (\`auth.cookie\`)
+
+## Overview
+
+\`tc_auth\` provides a unified Cookie Configuration Subsystem allowing backends to switch between:
+1. **Default Mode (\`cookie_mode = False\`)**: Pure \`localStorage\` mode. Tokens are returned in JSON response bodies and query parameters; requests use \`Authorization: Bearer <token>\`.
+2. **Cookie Mode (\`cookie_mode = True\`)**: The backend sets secure, \`HttpOnly\` cookies (\`access_token\` and optional \`refresh_token\`). Browsers automatically transport cookies via \`credentials: "include"\`.
+
+Both modes maintain **100% backwards compatibility** — if an incoming request provides an \`Authorization: Bearer <token>\` header, it is always preferred over cookie extraction.
+
+---
+
+## Configuration Reference
+
+\`\`\`python
+auth.cookie.config(
+    cookie_mode=True,                     # Toggle cookie mode (default: False)
+    access_cookie_name="access_token",    # Cookie name for access token
+    refresh_cookie_name="refresh_token",  # Cookie name for refresh token
+    path="/",                             # Cookie path scope
+    domain=None,                          # Optional domain (e.g. ".example.com")
+    secure=True,                          # Set True in production (HTTPS)
+    httponly=True,                        # Prevent JavaScript access (XSS protection)
+    samesite="lax",                       # "lax", "strict", or "none"
+    max_age=None                          # Max-Age in seconds (None = auto-sync with JWT duration)
+)
+\`\`\``,
+    schemas: [
+      {
+        title: 'Cookie Configuration Schema',
+        description: 'Parameters accepted by auth.cookie.config and returned by /config/load',
+        json: `{
+  "cookie_mode": true,
+  "access_cookie_name": "access_token",
+  "refresh_cookie_name": "refresh_token",
+  "path": "/",
+  "domain": null,
+  "secure": false,
+  "httponly": true,
+  "samesite": "lax",
+  "max_age": null
+}`
+      }
+    ],
+    methods: [
+      {
+        name: 'config',
+        signature: 'auth.cookie.config(cookie_mode: bool = False, access_cookie_name: str = "access_token", refresh_cookie_name: str = "refresh_token", path: str = "/", domain: str = None, secure: bool = False, httponly: bool = True, samesite: str = "lax", max_age: int = None)',
+        description: 'Configures runtime cookie parameters for token setting, clearing, and extraction.',
+        isAsync: false,
+        parameters: [
+          { name: 'cookie_mode', type: 'bool', required: false, default: 'False', description: 'Enable HttpOnly session cookie attachment.' },
+          { name: 'access_cookie_name', type: 'str', required: false, default: '"access_token"', description: 'Name of the access token cookie.' },
+          { name: 'refresh_cookie_name', type: 'str', required: false, default: '"refresh_token"', description: 'Name of the refresh token cookie.' },
+          { name: 'path', type: 'str', required: false, default: '"/"', description: 'Cookie path scope.' },
+          { name: 'domain', type: 'str | None', required: false, default: 'None', description: 'Optional cross-subdomain cookie domain.' },
+          { name: 'secure', type: 'bool', required: false, default: 'False', description: 'Requires HTTPS transmission (set True in production).' },
+          { name: 'httponly', type: 'bool', required: false, default: 'True', description: 'Prevents client JavaScript access.' },
+          { name: 'samesite', type: 'str', required: false, default: '"lax"', description: 'SameSite policy: "lax", "strict", or "none".' },
+          { name: 'max_age', type: 'int | None', required: false, default: 'None', description: 'Optional explicit cookie lifetime in seconds.' }
+        ],
+        returns: { type: 'dict', description: 'Active cookie configuration dictionary.' },
+        example: `auth.cookie.config(cookie_mode=True, secure=True, httponly=True, samesite="lax")`
+      },
+      {
+        name: 'set_cookies',
+        signature: 'auth.cookie.set_cookies(response: Response, access_token: str, refresh_token: str = None)',
+        description: 'Attaches configured Set-Cookie headers for access token and optional refresh token to FastAPI Response.',
+        isAsync: false,
+        parameters: [
+          { name: 'response', type: 'fastapi.Response', required: true, description: 'Outgoing HTTP response object.' },
+          { name: 'access_token', type: 'str', required: true, description: 'JWT access token string.' },
+          { name: 'refresh_token', type: 'str | None', required: false, default: 'None', description: 'Rotating refresh token string if dual token mode is active.' }
+        ],
+        returns: { type: 'None', description: 'Modifies response headers in-place.' },
+        example: `@app.post("/login")
+async def login(res: Response):
+    token_data = auth.service.login_password(email="user@test.com", password="pwd", response=res)
+    return token_data`
+      },
+      {
+        name: 'clear_cookies',
+        signature: 'auth.cookie.clear_cookies(response: Response)',
+        description: 'Sets expired Max-Age=0 Set-Cookie headers to destroy session cookies in user browser.',
+        isAsync: false,
+        parameters: [
+          { name: 'response', type: 'fastapi.Response', required: true, description: 'Outgoing HTTP response object.' }
+        ],
+        returns: { type: 'None', description: 'Modifies response headers in-place.' },
+        example: `@app.post("/logout")
+async def logout(res: Response):
+    auth.cookie.clear_cookies(res)
+    return {"success": True, "message": "Logged out"}`
+      }
+    ],
+    codeSnippet: `from fastapi import FastAPI, Response, Request
+from connect import auth
+
+app = FastAPI()
+
+# Enable Cookie Mode
+auth.cookie.config(
+    cookie_mode=True,
+    secure=True,
+    httponly=True,
+    samesite="lax"
+)
+
+auth.include_routes(app)`
+  },
+  {
     id: 'frontend-token-guide',
     title: 'Frontend Token Guide: Single & Dual Modes',
     module: 'Frontend Integration (Axios & Fetch)',
@@ -3103,6 +3220,24 @@ const counts = res.data;`
           { name: 'refresh_token_expire_days', type: 'body (int)', required: false, default: '7', description: 'Long-lived refresh token expiration in days.' }
         ],
         returns: { type: 'JSON Object', description: '{"success": true, "message": "JWT configured successfully"}' }
+      },
+      {
+        name: 'POST /config/cookie',
+        signature: 'POST /config/cookie',
+        description: 'Configures runtime Cookie Subsystem parameters (cookie mode toggle, cookie names, path, domain, secure flag, httponly flag, and samesite policy).',
+        parameters: [
+          { name: 'Authorization', type: 'header (str)', required: true, description: 'Superadmin token.' },
+          { name: 'cookie_mode', type: 'body (bool)', required: false, default: 'false', description: 'Toggle Cookie Mode on or off.' },
+          { name: 'access_cookie_name', type: 'body (str)', required: false, default: '"access_token"', description: 'Access token cookie name.' },
+          { name: 'refresh_cookie_name', type: 'body (str)', required: false, default: '"refresh_token"', description: 'Refresh token cookie name.' },
+          { name: 'path', type: 'body (str)', required: false, default: '"/"', description: 'Cookie path.' },
+          { name: 'domain', type: 'body (str | null)', required: false, default: 'null', description: 'Optional cross-domain cookie attribute.' },
+          { name: 'secure', type: 'body (bool)', required: false, default: 'false', description: 'Enable Secure flag (HTTPS required).' },
+          { name: 'httponly', type: 'body (bool)', required: false, default: 'true', description: 'Enable HttpOnly flag (XSS protection).' },
+          { name: 'samesite', type: 'body (str)', required: false, default: '"lax"', description: 'SameSite policy: "lax", "strict", or "none".' },
+          { name: 'max_age', type: 'body (int | null)', required: false, default: 'null', description: 'Optional custom Max-Age seconds.' }
+        ],
+        returns: { type: 'JSON Object', description: '{"success": true, "message": "Cookie configured successfully"}' }
       }
     ],
     codeSnippet: `curl -X GET \${BASE_URL}/config/load/ \\

@@ -31,6 +31,7 @@ auth = Auth(engine=engine, app=None)
 | `auth.github` | `GitHubOAuth` | GitHub OAuth 2.0 provider adapter |
 | `auth.discord` | `DiscordOAuth` | Discord OAuth 2.0 provider adapter |
 | `auth.jwt` | `jwt_handler` (module) | JWT encoding, decoding, token verification, expiration configs |
+| `auth.cookie` | `CookieService` | HttpOnly session cookie configuration, attachment, and clearing |
 | `auth.email` | `EmailService` | SMTP email dispatcher, OTP and Magic Link emails |
 | `auth.deps` | `AuthDeps` | Core FastAPI dependency injection functions (`get_current_user`, etc.) |
 | `auth.role` | `RoleDeps` | Role-based access control guards (`require`, `allow`, `block`) |
@@ -243,3 +244,26 @@ Explicitly sends an HTML email with a one-click Magic Link button.
 - `auth.email.send_verify_email(email, frontend_url=None)`
 - `auth.email.send_reset_otp(email, frontend_url=None)`
 - `auth.email.send_signup_otp(email, frontend_url=None)`
+
+---
+
+## 10. `auth.cookie` (`CookieService`)
+
+### `config(cookie_mode: bool = False, access_cookie_name: str = "access_token", refresh_cookie_name: str = "refresh_token", path: str = "/", domain: str | None = None, secure: bool = False, httponly: bool = True, samesite: str = "lax", max_age: int | None = None) -> dict`
+Configures runtime cookie settings for automatic `Set-Cookie` response header attachment and cookie-based authentication.
+
+### `load() -> dict`
+Returns the active cookie subsystem configuration.
+
+### `set_cookies(response: Response, access_token: str, refresh_token: str | None = None) -> None`
+Attaches configured `Set-Cookie` headers for access token and optional refresh token to a FastAPI `Response` object.
+
+### `clear_cookies(response: Response) -> None`
+Sets `Max-Age=0` expired `Set-Cookie` headers to destroy cookies in the client browser.
+
+### `extract_token_from_request(request: Request) -> str | None`
+Extracts access token from request cookies.
+
+### `extract_refresh_token_from_request(request: Request) -> str | None`
+Extracts refresh token from request cookies.
+

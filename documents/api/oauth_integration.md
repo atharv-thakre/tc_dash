@@ -106,14 +106,21 @@ Create an `/oauth/callback` route or page in your frontend:
 
     // Case 1: Sign-in / Sign-up with access_token
     const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+
+    // In Cookie Mode (cookie_mode=True):
+    // HttpOnly session cookies are already saved automatically in the browser during the 307 redirect!
+    // If accessToken query parameter exists, persist to localStorage for dual-mode compatibility:
     if (accessToken) {
-      // 1. Store token securely in localStorage or memory
       localStorage.setItem("access_token", accessToken);
+    }
+    if (refreshToken) {
+      localStorage.setItem("refresh_token", refreshToken);
+    }
 
-      // 2. Clean URL so token is not leaked in browser history or referrer headers
+    if (accessToken || document.cookie.includes("access_token")) {
+      // Clean URL so token is not leaked in browser history or referrer headers
       window.history.replaceState({}, document.title, window.location.pathname);
-
-      // 3. Redirect user to main application or dashboard
       window.location.href = "/dashboard";
       return;
     }

@@ -52,6 +52,30 @@ Common login response (When Dual-Token Mode is enabled):
 }
 ```
 
+Common login response (When Cookie Mode is enabled, `cookie_mode=True`):
+When Cookie Mode is enabled, `Set-Cookie` response headers are automatically attached for `access_token` and optional `refresh_token`. The JSON body returns:
+
+```json
+{
+  "token_type": "Cookie",
+  "account": {
+    "id": 1,
+    "email": "jane@example.com",
+    "name": "Jane Doe",
+    "role": "user"
+  },
+  "cookie": {
+    "cookie_mode": true,
+    "access_cookie_name": "access_token",
+    "refresh_cookie_name": "refresh_token",
+    "path": "/",
+    "domain": ".example.com",
+    "secure": true,
+    "samesite": "lax"
+  }
+}
+```
+
 Password Policy:
 All passwords set or updated must be at least 6 characters long and contain at least one uppercase letter, one lowercase letter, and one number. Failing this returns `400 Bad Request` (`WeakPasswordError`).
 

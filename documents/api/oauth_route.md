@@ -11,6 +11,7 @@ Flow notes:
 
 - `/google/login`, `/github/login`, and `/discord/login` redirect the browser to the provider authorization page.
 - The callback endpoints exchange the provider code, create or link the local account, and then redirect to the frontend callback URL with `access_token` (and `refresh_token` in dual-token mode, or `linked=true` for account linking).
+- **When `cookie_mode=True`**: The `RedirectResponse` attaches `Set-Cookie` headers for `access_token` and `refresh_token` while **preserving** the `?access_token=...&refresh_token=...` query parameters so existing frontend callback parsers never fail.
 - `frontend_url` is stored in the session during the login step and reused during the callback.
 
 Common response:

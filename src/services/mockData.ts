@@ -451,4 +451,16 @@ export const INITIAL_CONFIG: ConfigPayload = {
     access_token_expire_minutes: 15,
     refresh_token_expire_days: 7,
   },
+
+  cookie: {
+    cookie_mode: false,
+    access_cookie_name: 'access_token',
+    refresh_cookie_name: 'refresh_token',
+    path: '/',
+    domain: null,
+    secure: false,
+    httponly: true,
+    samesite: 'lax',
+    max_age: null,
+  },
 };

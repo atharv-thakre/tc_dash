@@ -88,6 +88,17 @@ auth.discord.config(
     client_secret="your-discord-client-secret",
     redirect_uri="https://app.example.com/tc-auth/discord/callback",
 )
+
+# 8. Configure Cookie Subsystem (Optional - enable for HttpOnly cookie mode)
+auth.cookie.config(
+    cookie_mode=True,
+    access_cookie_name="access_token",
+    refresh_cookie_name="refresh_token",
+    path="/",
+    secure=True,
+    httponly=True,
+    samesite="lax",
+)
 ```
 
 ---

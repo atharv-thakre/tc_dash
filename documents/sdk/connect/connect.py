@@ -49,6 +49,7 @@ engine = create_engine(
 #     auth.status      -> StatusDeps (require, allow, block)
 #     auth.email       -> EmailService
 #     auth.jwt         -> jwt_handler
+#     auth.cookie      -> CookieService (cookie_mode, set_cookies, clear_cookies)
 #     auth.google      -> GoogleOAuth
 #     auth.github      -> GitHubOAuth
 #     auth.discord     -> DiscordOAuth
@@ -122,7 +123,25 @@ auth.discord.config(
 
 
 # ==========================================================
-# 8. TABLE CREATION / TEARDOWN HELPERS
+# 8. COOKIE SUBSYSTEM CONFIGURATION (OPTIONAL)
+# ==========================================================
+#
+# Toggle between localStorage mode (default: cookie_mode=False)
+# and secure HttpOnly cookie mode.
+#
+auth.cookie.config(
+    cookie_mode=True,
+    access_cookie_name="access_token",
+    refresh_cookie_name="refresh_token",
+    path="/",
+    secure=True,
+    httponly=True,
+    samesite="lax",
+)
+
+
+# ==========================================================
+# 9. TABLE CREATION / TEARDOWN HELPERS
 # ==========================================================
 #
 # auth.init()     # Creates all database tables

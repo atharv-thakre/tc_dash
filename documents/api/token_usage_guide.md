@@ -476,11 +476,55 @@ async function logout() {
 
 ---
 
-## 9. Summary Checklist for Frontend Teams
+## 10. Cookie Mode Integration Guide (`cookie_mode = True`)
 
-1. **Always send `Authorization: Bearer <access_token>`**: Never send the `refresh_token` in `Authorization` headers (doing so triggers a `401 Unauthorized` security rejection).
-2. **Dynamically check for `refresh_token`**: If present, persist it and enable auto-refresh on 401; if absent, treat as Single-Token Mode.
-3. **Queue simultaneous requests**: Use the Axios response interceptor with request queuing to prevent multiple parallel `/token/refresh` calls when several components fetch on mount.
-4. **Clean OAuth & Magic Link callback URLs**: Use `window.history.replaceState` or client-side navigation (`router.replace`) immediately after reading tokens to prevent tokens leaking in browser history or referrer headers.
-5. **Handle Refresh Token Rotation**: Whenever `/token/refresh` returns a new `refresh_token`, update `localStorage` with the new value.
-6. **Reuse Callback Route**: Both OAuth providers (Google, GitHub, Discord) and Magic Links (`GET /link/login`) redirect to `{frontend_url}/oauth/callback` with tokens, avoiding duplicate frontend callback logic.
+`tc_auth` supports an alternative **Cookie Mode** where tokens are stored in secure `HttpOnly` session cookies rather than browser `localStorage`.
+
+### Key Differences:
+- **Cookie Transport**: Browsers automatically send cookies with every request when `credentials: "include"` (or `withCredentials: true` in Axios) is configured.
+- **XSS Protection**: JavaScript cannot read `HttpOnly` cookies, preventing stolen tokens via XSS.
+- **CORS Requirement**: The backend cannot use `allow_origins: ["*"]` with credentials. It must explicitly list allowed origins (e.g. `allow_origins: ["https://app.example.com"]`).
+
+### Universal Axios Setup with Cookie & Bearer Support:
+
+```typescript
+import axios from "axios";
+
+export const apiClient = axios.create({
+  baseURL: "https://api.example.com/tc-auth",
+  withCredentials: true, // Automatically sends and receives HttpOnly cookies
+});
+
+// If using Bearer tokens simultaneously, attach if available in localStorage
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem("access_token");
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+```
+
+### Universal Fetch Setup:
+
+```typescript
+export async function customFetch(endpoint: string, options: RequestInit = {}) {
+  const token = localStorage.getItem("access_token");
+  
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string>),
+  };
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  return fetch(`https://api.example.com/tc-auth${endpoint}`, {
+    ...options,
+    headers,
+    credentials: "include", // Transports HttpOnly session cookies
+  });
+}
+```
+

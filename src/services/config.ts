@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ConfigPayload, EmailConfig, JWTConfig, OAuthConfig, StandardActionResponse } from '../types';
+import { ConfigPayload, CookieConfig, EmailConfig, JWTConfig, OAuthConfig, StandardActionResponse } from '../types';
 import {
   apiClient,
   generateCandidateEndpoints,
@@ -229,5 +229,18 @@ export const configService = {
     }
     const resData = await requestWithFallback<any>('post', ['/config/jwt', '/config/jwt/'], input);
     return resData?.data || resData || { success: true, message: 'JWT configured successfully' };
+  },
+
+  // POST /config/cookie
+  async updateCookieConfig(input: CookieConfig): Promise<StandardActionResponse> {
+    if (getStoredApiMode() === 'demo') {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      const conf = getDemoConfig();
+      conf.cookie = { ...(conf.cookie || {}), ...input };
+      saveDemoConfig(conf);
+      return { success: true, message: 'Cookie configured successfully' };
+    }
+    const resData = await requestWithFallback<any>('post', ['/config/cookie', '/config/cookie/'], input);
+    return resData?.data || resData || { success: true, message: 'Cookie configured successfully' };
   },
 };

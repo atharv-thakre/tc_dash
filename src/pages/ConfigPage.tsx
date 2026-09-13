@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Eye, EyeOff, Key, Mail, RefreshCw, Save, Shield, Sliders } from 'lucide-react';
+import { Cookie, Eye, EyeOff, Key, Mail, RefreshCw, Save, Shield, Sliders } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
-import { ConfigPayload, EmailConfig, JWTConfig, OAuthConfig } from '../types';
+import { ConfigPayload, CookieConfig, EmailConfig, JWTConfig, OAuthConfig } from '../types';
 import { configService } from '../services/config';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/common/Card';
 import { PageHeader } from '../components/common/PageHeader';
@@ -58,6 +58,18 @@ export const ConfigPage: React.FC = () => {
     dual_token_mode: true,
     access_token_expire_minutes: 15,
     refresh_token_expire_days: 7,
+  });
+
+  const [cookieForm, setCookieForm] = useState<CookieConfig>({
+    cookie_mode: false,
+    access_cookie_name: 'access_token',
+    refresh_cookie_name: 'refresh_token',
+    path: '/',
+    domain: null,
+    secure: false,
+    httponly: true,
+    samesite: 'lax',
+    max_age: null,
   });
 
   // Secret visibility toggles
@@ -117,6 +129,19 @@ export const ConfigPage: React.FC = () => {
           dual_token_mode: data.jwt.dual_token_mode ?? true,
           access_token_expire_minutes: data.jwt.access_token_expire_minutes ?? 15,
           refresh_token_expire_days: data.jwt.refresh_token_expire_days ?? 7,
+        });
+      }
+      if (data.cookie) {
+        setCookieForm({
+          cookie_mode: data.cookie.cookie_mode ?? false,
+          access_cookie_name: data.cookie.access_cookie_name ?? 'access_token',
+          refresh_cookie_name: data.cookie.refresh_cookie_name ?? 'refresh_token',
+          path: data.cookie.path ?? '/',
+          domain: data.cookie.domain ?? null,
+          secure: data.cookie.secure ?? false,
+          httponly: data.cookie.httponly ?? true,
+          samesite: data.cookie.samesite ?? 'lax',
+          max_age: data.cookie.max_age ?? null,
         });
       }
     } catch (err: any) {
@@ -190,6 +215,19 @@ export const ConfigPage: React.FC = () => {
       toast.success(res?.message || 'JWT configured successfully');
     } catch (err: any) {
       toast.error(getErrorMessage(err, 'Failed to update JWT config'));
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
+  const handleSaveCookie = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSection('cookie');
+    try {
+      const res = await configService.updateCookieConfig(cookieForm);
+      toast.success(res?.message || 'Cookie configured successfully');
+    } catch (err: any) {
+      toast.error(getErrorMessage(err, 'Failed to update Cookie config'));
     } finally {
       setSavingSection(null);
     }
@@ -673,6 +711,154 @@ export const ConfigPage: React.FC = () => {
                 >
                   <Save className="w-3.5 h-3.5" />
                   {savingSection === 'jwt' ? 'Saving...' : 'Save JWT Config'}
+                </button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Card 6: Cookie Configuration */}
+        <Card className="relative overflow-hidden lg:col-span-2">
+          {savingSection === 'cookie' && <BorderBeam size={200} duration={8} colorFrom="#ec4899" colorTo="#8b5cf6" />}
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Cookie className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+              6. Cookie Subsystem & Storage Mode Config
+            </CardTitle>
+            <CardDescription>
+              Toggle between localStorage mode (default Bearer tokens) and secure HttpOnly cookie mode for browser session management.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSaveCookie} className="space-y-4">
+              {/* Cookie Mode Master Toggle */}
+              <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 dark:bg-amber-950/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                      Cookie Mode: {cookieForm.cookie_mode ? 'Enabled (HttpOnly Cookies)' : 'Disabled (localStorage Mode)'}
+                    </span>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                      {cookieForm.cookie_mode
+                        ? 'Backend sets secure HttpOnly session cookies on responses. Frontend uses credentials: "include" for automatic cookie transport.'
+                        : 'Default backward-compatible mode: tokens are returned in JSON response bodies and stored by client in localStorage.'}
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-4">
+                    <input
+                      type="checkbox"
+                      checked={cookieForm.cookie_mode}
+                      onChange={(e) => setCookieForm({ ...cookieForm, cookie_mode: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                <FormField label="Access Cookie Name">
+                  <input
+                    type="text"
+                    value={cookieForm.access_cookie_name || 'access_token'}
+                    onChange={(e) => setCookieForm({ ...cookieForm, access_cookie_name: e.target.value })}
+                    placeholder="access_token"
+                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
+                  />
+                </FormField>
+
+                <FormField label="Refresh Cookie Name">
+                  <input
+                    type="text"
+                    value={cookieForm.refresh_cookie_name || 'refresh_token'}
+                    onChange={(e) => setCookieForm({ ...cookieForm, refresh_cookie_name: e.target.value })}
+                    placeholder="refresh_token"
+                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
+                  />
+                </FormField>
+
+                <FormField label="Cookie Path">
+                  <input
+                    type="text"
+                    value={cookieForm.path || '/'}
+                    onChange={(e) => setCookieForm({ ...cookieForm, path: e.target.value })}
+                    placeholder="/"
+                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
+                  />
+                </FormField>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                <FormField label="Cookie Domain (Optional)">
+                  <input
+                    type="text"
+                    value={cookieForm.domain || ''}
+                    onChange={(e) => setCookieForm({ ...cookieForm, domain: e.target.value || null })}
+                    placeholder=".example.com (or empty for current domain)"
+                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
+                  />
+                </FormField>
+
+                <FormField label="SameSite Policy">
+                  <select
+                    value={cookieForm.samesite || 'lax'}
+                    onChange={(e) => setCookieForm({ ...cookieForm, samesite: e.target.value as any })}
+                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white font-mono"
+                  >
+                    <option value="lax">Lax (Default - Recommended for top-level navigation)</option>
+                    <option value="strict">Strict (Most secure - First-party context only)</option>
+                    <option value="none">None (Requires Secure flag for cross-origin)</option>
+                  </select>
+                </FormField>
+
+                <FormField label="Custom Max-Age Seconds (Optional)">
+                  <NumberInput
+                    value={cookieForm.max_age ?? 0}
+                    onChange={(val) => setCookieForm({ ...cookieForm, max_age: val > 0 ? val : null })}
+                    min={0}
+                    max={31536000}
+                    step={60}
+                  />
+                </FormField>
+              </div>
+
+              {/* Security Flags */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-xl bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={cookieForm.httponly !== false}
+                    onChange={(e) => setCookieForm({ ...cookieForm, httponly: e.target.checked })}
+                    className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 bg-white dark:bg-zinc-800 border-slate-300 dark:border-zinc-700"
+                  />
+                  <div>
+                    <span className="text-xs font-medium text-slate-800 dark:text-zinc-200">HttpOnly Flag</span>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400">Prevents client JavaScript (XSS attacks) from reading cookie contents.</p>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={cookieForm.secure ?? false}
+                    onChange={(e) => setCookieForm({ ...cookieForm, secure: e.target.checked })}
+                    className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 bg-white dark:bg-zinc-800 border-slate-300 dark:border-zinc-700"
+                  />
+                  <div>
+                    <span className="text-xs font-medium text-slate-800 dark:text-zinc-200">Secure Flag</span>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400">Restricts cookie transmission to encrypted HTTPS connections.</p>
+                  </div>
+                </label>
+              </div>
+
+              <div className="pt-3 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={savingSection === 'cookie'}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 active:scale-98"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {savingSection === 'cookie' ? 'Saving...' : 'Save Cookie Config'}
                 </button>
               </div>
             </form>

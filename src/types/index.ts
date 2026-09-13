@@ -112,12 +112,25 @@ export interface JWTConfig {
   refresh_token_expire_days?: number;
 }
 
+export interface CookieConfig {
+  cookie_mode: boolean;
+  access_cookie_name?: string;
+  refresh_cookie_name?: string;
+  path?: string;
+  domain?: string | null;
+  secure?: boolean;
+  httponly?: boolean;
+  samesite?: 'lax' | 'strict' | 'none';
+  max_age?: number | null;
+}
+
 export interface ConfigPayload {
   email: EmailConfig;
   github: OAuthConfig;
   google: OAuthConfig;
   discord: OAuthConfig;
   jwt: JWTConfig;
+  cookie?: CookieConfig;
 }
 
 // Input Types matching API reference exactly

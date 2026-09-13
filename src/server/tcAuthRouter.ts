@@ -185,6 +185,17 @@ let systemConfig = {
     access_token_expire_minutes: 15,
     refresh_token_expire_days: 7,
   },
+  cookie: {
+    cookie_mode: false,
+    access_cookie_name: 'access_token',
+    refresh_cookie_name: 'refresh_token',
+    path: '/',
+    domain: null as string | null,
+    secure: false,
+    httponly: true,
+    samesite: 'lax' as 'lax' | 'strict' | 'none',
+    max_age: null as number | null,
+  },
 };
 
 // Helper: paginate array
@@ -195,15 +206,60 @@ function paginate<T>(items: T[], page = 1, limit = 10): T[] {
   return items.slice(start, start + l);
 }
 
+// Helper: attach Set-Cookie headers if cookie_mode is enabled
+function attachCookieHeaders(res: Response, accessToken: string, refreshToken?: string) {
+  if (!systemConfig.cookie?.cookie_mode) return;
+  const cookieCfg = systemConfig.cookie;
+  const accessName = cookieCfg.access_cookie_name || 'access_token';
+  const refreshName = cookieCfg.refresh_cookie_name || 'refresh_token';
+  const cookiePath = cookieCfg.path || '/';
+  const sameSite = cookieCfg.samesite || 'lax';
+  const isSecure = cookieCfg.secure ? '; Secure' : '';
+  const isHttpOnly = cookieCfg.httponly !== false ? '; HttpOnly' : '';
+  const domainPart = cookieCfg.domain ? `; Domain=${cookieCfg.domain}` : '';
+  const maxAgePart = cookieCfg.max_age ? `; Max-Age=${cookieCfg.max_age}` : '';
+
+  const cookies: string[] = [
+    `${accessName}=${accessToken}; Path=${cookiePath}; SameSite=${sameSite}${isHttpOnly}${isSecure}${domainPart}${maxAgePart}`,
+  ];
+  if (refreshToken) {
+    cookies.push(
+      `${refreshName}=${refreshToken}; Path=${cookiePath}; SameSite=${sameSite}${isHttpOnly}${isSecure}${domainPart}${maxAgePart}`
+    );
+  }
+  res.setHeader('Set-Cookie', cookies);
+}
+
+// Helper: clear cookie headers on logout
+function clearCookieHeaders(res: Response) {
+  if (!systemConfig.cookie?.cookie_mode) return;
+  const cookieCfg = systemConfig.cookie;
+  const accessName = cookieCfg.access_cookie_name || 'access_token';
+  const refreshName = cookieCfg.refresh_cookie_name || 'refresh_token';
+  const cookiePath = cookieCfg.path || '/';
+  const domainPart = cookieCfg.domain ? `; Domain=${cookieCfg.domain}` : '';
+
+  res.setHeader('Set-Cookie', [
+    `${accessName}=; Path=${cookiePath}; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${domainPart}`,
+    `${refreshName}=; Path=${cookiePath}; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${domainPart}`,
+  ]);
+}
+
 // Helper: build auth response with optional dual-token refresh_token
-function createAuthTokenResponse(account: any) {
+function createAuthTokenResponse(account: any, res?: Response) {
+  const accessToken = `tc_jwt_token_${account.id}_${Date.now()}`;
+  const refreshToken = systemConfig.jwt.dual_token_mode ? `tc_jwt_ref_${account.id}_${Date.now()}` : undefined;
+
   const response: any = {
-    access_token: `tc_jwt_token_${account.id}_${Date.now()}`,
+    access_token: accessToken,
     token_type: 'Bearer',
     account,
   };
-  if (systemConfig.jwt.dual_token_mode) {
-    response.refresh_token = `tc_jwt_ref_${account.id}_${Date.now()}`;
+  if (refreshToken) {
+    response.refresh_token = refreshToken;
+  }
+  if (res) {
+    attachCookieHeaders(res, accessToken, refreshToken);
   }
   return response;
 }
@@ -302,6 +358,15 @@ tcAuthRouter.post(['/config/jwt', '/config/jwt/'], (req: Request, res: Response)
   res.json({
     success: true,
     message: 'JWT configured successfully',
+  });
+});
+
+// POST /config/cookie
+tcAuthRouter.post(['/config/cookie', '/config/cookie/'], (req: Request, res: Response) => {
+  systemConfig.cookie = { ...systemConfig.cookie, ...req.body };
+  res.json({
+    success: true,
+    message: 'Cookie configured successfully',
   });
 });
 
@@ -575,7 +640,7 @@ tcAuthRouter.post(['/signup/otp', '/signup/otp/'], (req: Request, res: Response)
   };
   accounts.push(newAccount);
 
-  res.json(createAuthTokenResponse(newAccount));
+  res.json(createAuthTokenResponse(newAccount, res));
 });
 
 // POST /signup/password
@@ -606,7 +671,7 @@ tcAuthRouter.post(['/signup/password', '/signup/password/'], (req: Request, res:
   };
   accounts.push(newAccount);
 
-  res.json(createAuthTokenResponse(newAccount));
+  res.json(createAuthTokenResponse(newAccount, res));
 });
 
 // POST /login/otp
@@ -614,7 +679,7 @@ tcAuthRouter.post(['/login/otp', '/login/otp/'], (req: Request, res: Response) =
   const { email } = req.body;
   const account = accounts.find((a) => a.email.toLowerCase() === (email || '').toLowerCase()) || accounts[0];
 
-  res.json(createAuthTokenResponse(account));
+  res.json(createAuthTokenResponse(account, res));
 });
 
 // POST /login/password
@@ -623,7 +688,7 @@ tcAuthRouter.post(['/login/password', '/login/password/'], (req: Request, res: R
   const target = (identifier || '').toLowerCase();
   const account = accounts.find((a) => a.email.toLowerCase() === target || a.handle.toLowerCase() === target) || accounts[0];
 
-  res.json(createAuthTokenResponse(account));
+  res.json(createAuthTokenResponse(account, res));
 });
 
 // POST /forgot/password
@@ -643,7 +708,7 @@ tcAuthRouter.post(['/forgot/password', '/forgot/password/'], (req: Request, res:
   const account = accounts.find((a) => a.email.toLowerCase() === (email || '').toLowerCase()) || accounts[0];
   account.has_password = true;
 
-  res.json(createAuthTokenResponse(account));
+  res.json(createAuthTokenResponse(account, res));
 });
 
 // POST /token/refresh
@@ -657,8 +722,12 @@ tcAuthRouter.post(['/token/refresh', '/token/refresh/'], (req: Request, res: Res
     });
   }
 
-  const { refresh_token } = req.body;
-  if (!refresh_token || typeof refresh_token !== 'string') {
+  const bodyToken = req.body?.refresh_token;
+  const cookieToken = req.cookies?.[systemConfig.cookie?.refresh_cookie_name || 'refresh_token'];
+  const refreshTokenToVerify = bodyToken || cookieToken;
+
+  // In cookie mode, empty body is valid if cookie exists
+  if (!refreshTokenToVerify && !systemConfig.cookie?.cookie_mode) {
     return res.status(401).json({
       success: false,
       message: 'Invalid or expired refresh token',
@@ -669,6 +738,9 @@ tcAuthRouter.post(['/token/refresh', '/token/refresh/'], (req: Request, res: Res
   // Accept valid refresh tokens and rotate
   const newAccessToken = `tc_jwt_token_${Date.now()}`;
   const newRefreshToken = `tc_jwt_ref_${Date.now()}`;
+
+  // Attach updated cookies if cookie mode is enabled
+  attachCookieHeaders(res, newAccessToken, newRefreshToken);
 
   res.json({
     access_token: newAccessToken,
@@ -684,14 +756,17 @@ tcAuthRouter.post(['/token/refresh', '/token/refresh/'], (req: Request, res: Res
 function handleOAuthLogin(provider: string, req: Request, res: Response) {
   const frontendUrl = (req.query.frontend_url as string) || (req.headers.referer ? new URL(req.headers.referer).origin : 'http://localhost:3000');
   const token = `tc_jwt_token_${provider}_${Date.now()}`;
-  let redirectUrl = `${frontendUrl}/oauth/callback?access_token=${token}&provider=${provider}`;
+  const refreshToken = systemConfig.jwt.dual_token_mode ? `tc_jwt_ref_${provider}_${Date.now()}` : undefined;
 
-  if (systemConfig.jwt.dual_token_mode) {
-    const refreshToken = `tc_jwt_ref_${provider}_${Date.now()}`;
+  let redirectUrl = `${frontendUrl}/oauth/callback?access_token=${token}&provider=${provider}`;
+  if (refreshToken) {
     redirectUrl += `&refresh_token=${refreshToken}`;
   }
 
-  // Direct redirect simulating successful OAuth callback flow
+  // If cookie mode is active, also attach Set-Cookie on the 307 redirect
+  attachCookieHeaders(res, token, refreshToken);
+
+  // Direct redirect preserving query params in both localStorage and Cookie modes
   return res.redirect(307, redirectUrl);
 }
 
@@ -846,6 +921,7 @@ tcAuthRouter.put(['/update/password', '/update/password/'], (req: Request, res: 
 
 // POST /logout
 tcAuthRouter.post(['/logout', '/logout/'], (_req: Request, res: Response) => {
+  clearCookieHeaders(res);
   res.json({
     success: true,
     message: 'Session destroyed successfully',
@@ -854,6 +930,7 @@ tcAuthRouter.post(['/logout', '/logout/'], (_req: Request, res: Response) => {
 
 // POST /logout-all
 tcAuthRouter.post(['/logout-all', '/logout-all/'], (_req: Request, res: Response) => {
+  clearCookieHeaders(res);
   res.json({
     success: true,
     message: 'All sessions destroyed for account',

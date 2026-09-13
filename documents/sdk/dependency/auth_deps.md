@@ -95,6 +95,12 @@ Example structure:
 `auth.deps` handles authentication using both the JWT and its associated
 session.
 
+### Dual Extraction: Header & Cookie Support
+
+`auth.deps` supports dual-mode token extraction:
+1. **`Authorization: Bearer <access_token>` Header**: Preferred if present.
+2. **`access_token` Cookie**: If the `Authorization` header is omitted and `cookie_mode` is enabled (or cookie is provided), the dependency transparently reads and validates the token from request cookies.
+
 ### JWT
 
 The JWT provides the authentication token and claims such as:
